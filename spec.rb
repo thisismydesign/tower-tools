@@ -9,6 +9,9 @@ SCRIPT_PATH = File.expand_path('convert.rb', __dir__)
 INPUT_PATH = File.expand_path('example/input.json', __dir__)
 EXPECTED_OUTPUT_PATH = File.expand_path('example/output.csv', __dir__)
 
+# Load the convert script to get access to convert_file function
+load SCRIPT_PATH
+
 def run_spec
   temp_dir = Dir.mktmpdir
   temp_input = File.join(temp_dir, 'input.json')
@@ -17,8 +20,9 @@ def run_spec
   begin
     FileUtils.cp(INPUT_PATH, temp_input)
 
-    result = system("ruby", SCRIPT_PATH, temp_input)
-    raise "Script exited with error" unless result
+    # Call convert_file directly
+    convert_file(temp_input, temp_output)
+
     raise "Output file not created" unless File.exist?(temp_output)
 
     actual = File.read(temp_output)
@@ -49,4 +53,7 @@ def run_spec
   end
 end
 
-exit(run_spec ? 0 : 1)
+# Only run if this file is executed directly (not when loaded by convert.rb)
+if __FILE__ == $0
+  exit(run_spec ? 0 : 1)
+end

@@ -75,53 +75,74 @@ def normalize_value(val)
   val
 end
 
-input_file = ARGV[0]
-abort 'Usage: ruby convert.rb <input.json>' unless input_file
+def convert_file(input_file, output_file)
+  data = JSON.parse(File.read(input_file))
 
-output_file = input_file.sub(/\.json$/, '.csv')
-data = JSON.parse(File.read(input_file))
+  # Sort by date descending (newest first)
+  data.sort_by! { |record| record['date'] }.reverse!
 
-# Sort by date descending (newest first)
-data.sort_by! { |record| record['date'] }.reverse!
-
-# Collect all keys from all records for consistent columns
-all_raw_keys = Set.new
-data.each do |record|
-  parsed = parse_raw_data(record['rawData'] || '')
-  all_raw_keys.merge(parsed.keys)
-end
-
-other_keys = (all_raw_keys - ['Battle Date']).to_a.sort_by(&:downcase)
-sorted_raw_keys = ['Battle Date'] + other_keys
-headers = ['_Date', '_Time'] + sorted_raw_keys
-
-CSV.open(output_file, 'w', col_sep: "\t", force_quotes: false) do |csv|
-  csv << headers
-
+  # Collect all keys from all records for consistent columns
+  all_raw_keys = Set.new
   data.each do |record|
-    date = Time.parse(record['date']).utc
-    parsed_raw = parse_raw_data(record['rawData'] || '')
-
-    # Override Battle Date with formatted JSON date
-    parsed_raw['Battle Date'] = format_battle_date(date)
-
-    row = [
-      date.strftime('%Y-%m-%d'),
-      date.strftime('%H:%M:%S')
-    ]
-
-    sorted_raw_keys.each do |key|
-      val = parsed_raw[key]
-      row << (val.to_s.empty? ? nil : normalize_value(val))
-    end
-
-    csv << row
+    parsed = parse_raw_data(record['rawData'] || '')
+    all_raw_keys.merge(parsed.keys)
   end
+
+  other_keys = (all_raw_keys - ['Battle Date']).to_a.sort_by(&:downcase)
+  sorted_raw_keys = ['Battle Date'] + other_keys
+  headers = ['_Date', '_Time'] + sorted_raw_keys
+
+  CSV.open(output_file, 'w', col_sep: "\t", force_quotes: false) do |csv|
+    csv << headers
+
+    data.each do |record|
+      date = Time.parse(record['date']).utc
+      parsed_raw = parse_raw_data(record['rawData'] || '')
+
+      # Override Battle Date with formatted JSON date
+      parsed_raw['Battle Date'] = format_battle_date(date)
+
+      row = [
+        date.strftime('%Y-%m-%d'),
+        date.strftime('%H:%M:%S')
+      ]
+
+      sorted_raw_keys.each do |key|
+        val = parsed_raw[key]
+        row << (val.to_s.empty? ? nil : normalize_value(val))
+      end
+
+      csv << row
+    end
+  end
+
+  # Remove trailing newline to match expected format
+  content = File.read(output_file)
+  File.write(output_file, content.chomp)
+
+  data.length
 end
 
-# Remove trailing newline to match expected format
-content = File.read(output_file)
-File.write(output_file, content.chomp)
+# Main execution - only run when script is called directly
+if __FILE__ == $0
+  script_dir = File.dirname(File.expand_path(__FILE__))
+  input_dir = File.join(script_dir, 'input')
+  output_dir = File.join(script_dir, 'output')
 
-puts "Converted #{data.length} records to #{output_file}"
+  input_files = Dir.glob(File.join(input_dir, '*.json'))
 
+  if input_files.empty?
+    puts "No JSON files found in #{input_dir}"
+    exit 0
+  end
+
+  input_files.each do |input_file|
+    basename = File.basename(input_file, '.json')
+    output_file = File.join(output_dir, "#{basename}.csv")
+
+    record_count = convert_file(input_file, output_file)
+    puts "Converted #{record_count} records: #{File.basename(input_file)} -> #{File.basename(output_file)}"
+  end
+
+  puts "Done. Processed #{input_files.length} file(s)."
+end
