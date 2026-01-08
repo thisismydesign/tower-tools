@@ -4,13 +4,13 @@ Converts Tower game battle report JSON exports to CSV (tab-separated) format.
 
 ## Usage
 
-Place JSON files in the `input/` folder, then run:
+Place JSON files in the `bulk_input/` folder, then run:
 
 ```sh
 ruby convert.rb
 ```
 
-CSV files will be created in the `output/` folder with the same base name. Existing files are overwritten.
+CSV files will be created in the `bulk_output/` folder with the same base name. Existing files are overwritten.
 
 ## Testing
 
@@ -18,4 +18,4 @@ CSV files will be created in the `output/` folder with the same base name. Exist
 ruby spec.rb
 ```
 
-Verifies that converting `example/input.json` produces output matching `example/output.csv`.
+Verifies that converting `example/bulk_input.json` produces output matching `example/bulk_output.csv`.

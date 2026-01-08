@@ -126,8 +126,8 @@ end
 # Main execution - only run when script is called directly
 if __FILE__ == $0
   script_dir = File.dirname(File.expand_path(__FILE__))
-  input_dir = File.join(script_dir, 'input')
-  output_dir = File.join(script_dir, 'output')
+  input_dir = File.join(script_dir, 'bulk_input')
+  output_dir = File.join(script_dir, 'bulk_output')
 
   input_files = Dir.glob(File.join(input_dir, '*.json'))
 

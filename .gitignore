@@ -1,4 +1,4 @@
-input/*
-!input/.keep
-output/*
-!output/.keep
+bulk_input/*
+!bulk_input/.keep
+bulk_output/*
+!bulk_output/.keep

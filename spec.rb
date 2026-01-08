@@ -6,8 +6,8 @@ require 'tempfile'
 require 'fileutils'
 
 SCRIPT_PATH = File.expand_path('convert.rb', __dir__)
-INPUT_PATH = File.expand_path('example/input.json', __dir__)
-EXPECTED_OUTPUT_PATH = File.expand_path('example/output.csv', __dir__)
+INPUT_PATH = File.expand_path('example/bulk_input.json', __dir__)
+EXPECTED_OUTPUT_PATH = File.expand_path('example/bulk_output.csv', __dir__)
 
 # Load the convert script to get access to convert_file function
 load SCRIPT_PATH
