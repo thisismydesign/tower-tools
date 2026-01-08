@@ -74,6 +74,20 @@ def normalize_value(val)
   val
 end
 
+# Determine if a run is tournament or farm
+# Tournament: Wednesday or Saturday with waves < 1500
+# Farm: everything else
+def determine_run_type(date, waves)
+  day_of_week = date.wday  # 0=Sunday, 3=Wednesday, 6=Saturday
+  is_tournament_day = [3, 6].include?(day_of_week)
+  
+  if is_tournament_day && waves < 1500
+    'tournament'
+  else
+    'farm'
+  end
+end
+
 # Convert JSON export (multiple records) to CSV
 def convert_json_file(input_file, output_file)
   data = JSON.parse(File.read(input_file))
@@ -90,7 +104,7 @@ def convert_json_file(input_file, output_file)
 
   other_keys = (all_raw_keys - ['Battle Date']).to_a.sort_by(&:downcase)
   sorted_raw_keys = ['Battle Date'] + other_keys
-  headers = ['_Date', '_Time'] + sorted_raw_keys
+  headers = ['_Date', '_Time', '_Run Type'] + sorted_raw_keys
 
   CSV.open(output_file, 'w', col_sep: "\t", force_quotes: false) do |csv|
     csv << headers
@@ -98,13 +112,18 @@ def convert_json_file(input_file, output_file)
     data.each do |record|
       date = Time.parse(record['date']).utc
       parsed_raw = parse_raw_data(record['rawData'] || '')
+      waves = record['waves'] || 0
 
       # Override Battle Date with formatted JSON date
       parsed_raw['Battle Date'] = format_battle_date(date)
 
+      # Determine run type (tournament or farm)
+      run_type = determine_run_type(date, waves)
+
       row = [
         date.strftime('%Y-%m-%d'),
-        date.strftime('%H:%M:%S')
+        date.strftime('%H:%M:%S'),
+        run_type
       ]
 
       sorted_raw_keys.each do |key|
