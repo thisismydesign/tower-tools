@@ -21,4 +21,6 @@ Existing files are overwritten.
 ruby spec.rb
 ```
 
-Verifies that converting `example/bulk_input.json` produces output matching `example/bulk_output.csv`.
+Verifies both conversion scenarios:
+- `example/bulk_input.json` → `example/bulk_output.csv`
+- `example/single_input.txt` → `example/single_output.txt`
