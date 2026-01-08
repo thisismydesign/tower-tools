@@ -15,7 +15,7 @@ KNOWN_KEYS = [
   'Enemies Hit by Orbs', 'Land Mine Damage', 'Land Mines Spawned',
   'Rend Armor Damage', 'Death Ray Damage', 'Smart Missile Damage',
   'Inner Land Mine Damage', 'Chain Lightning Damage', 'Death Wave Damage',
-  'Tagged by Deathwave', 'Swamp Damage', 'Black Hole Damage',
+  'Tagged by Deathwave', 'Swamp Damage', 'Black Hole Damage', 'Electrons Damage',
   'Waves Skipped', 'Recovery Packages', 'Free Attack Upgrade',
   'Free Defense Upgrade', 'Free Utility Upgrade', 'HP From Death Wave',
   'Coins From Death Wave', 'Cash From Golden Tower', 'Coins From Golden Tower',
@@ -66,7 +66,6 @@ def normalize_value(val)
   val = val.sub(/^x/, '')
 
   # Remove trailing zeros after decimal point (e.g., 480.90B -> 480.9B)
-  # Match: digits, dot, digits with trailing zeros, then optional suffix
   val = val.gsub(/(\d+\.\d*?)0+([A-Za-z]*)$/, '\1\2')
 
   # Remove trailing decimal point before suffix or end (e.g., 9.B -> 9B, 0. -> 0)
@@ -75,7 +74,8 @@ def normalize_value(val)
   val
 end
 
-def convert_file(input_file, output_file)
+# Convert JSON export (multiple records) to CSV
+def convert_json_file(input_file, output_file)
   data = JSON.parse(File.read(input_file))
 
   # Sort by date descending (newest first)
@@ -123,26 +123,60 @@ def convert_file(input_file, output_file)
   data.length
 end
 
+# Convert single TXT report to TXT with key<TAB>value format
+def convert_txt_file(input_file, output_file)
+  raw_data = File.read(input_file)
+  parsed = parse_raw_data(raw_data)
+
+  # Sort keys: Battle Date first, then alphabetically by lowercase
+  other_keys = (parsed.keys - ['Battle Date']).sort_by(&:downcase)
+  sorted_keys = ['Battle Date'] + other_keys
+
+  # Build output with key<TAB>value on each line
+  lines = sorted_keys.map do |key|
+    "#{key}\t#{normalize_value(parsed[key])}"
+  end
+
+  File.write(output_file, lines.join("\n"))
+
+  1
+end
+
 # Main execution - only run when script is called directly
 if __FILE__ == $0
   script_dir = File.dirname(File.expand_path(__FILE__))
-  input_dir = File.join(script_dir, 'bulk_input')
-  output_dir = File.join(script_dir, 'bulk_output')
+  input_dir = File.join(script_dir, 'input')
+  output_dir = File.join(script_dir, 'output')
 
-  input_files = Dir.glob(File.join(input_dir, '*.json'))
+  json_files = Dir.glob(File.join(input_dir, '*.json'))
+  txt_files = Dir.glob(File.join(input_dir, '*.txt'))
 
-  if input_files.empty?
-    puts "No JSON files found in #{input_dir}"
+  if json_files.empty? && txt_files.empty?
+    puts "No JSON or TXT files found in #{input_dir}"
     exit 0
   end
 
-  input_files.each do |input_file|
+  # Process JSON files -> CSV
+  json_files.each do |input_file|
     basename = File.basename(input_file, '.json')
     output_file = File.join(output_dir, "#{basename}.csv")
 
-    record_count = convert_file(input_file, output_file)
+    record_count = convert_json_file(input_file, output_file)
     puts "Converted #{record_count} records: #{File.basename(input_file)} -> #{File.basename(output_file)}"
   end
 
-  puts "Done. Processed #{input_files.length} file(s)."
+  # Process TXT files -> TXT
+  txt_files.each do |input_file|
+    basename = File.basename(input_file, '.txt')
+    # Replace _input with _output, or append _output if no _input suffix
+    output_basename = basename.sub(/_input$/, '_output')
+    output_basename = "#{basename}_output" if output_basename == basename
+    output_file = File.join(output_dir, "#{output_basename}.txt")
+
+    convert_txt_file(input_file, output_file)
+    puts "Converted: #{File.basename(input_file)} -> #{File.basename(output_file)}"
+  end
+
+  total = json_files.length + txt_files.length
+  puts "Done. Processed #{total} file(s)."
 end

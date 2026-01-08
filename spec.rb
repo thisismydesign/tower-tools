@@ -20,8 +20,8 @@ def run_spec
   begin
     FileUtils.cp(INPUT_PATH, temp_input)
 
-    # Call convert_file directly
-    convert_file(temp_input, temp_output)
+    # Call convert_json_file directly
+    convert_json_file(temp_input, temp_output)
 
     raise "Output file not created" unless File.exist?(temp_output)
 
