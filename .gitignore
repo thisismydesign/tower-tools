@@ -1,4 +1,4 @@
-input/*
-!input/.keep
-output/*
-!output/.keep
+battle-report-converter/input/*
+!battle-report-converter/input/.keep
+battle-report-converter/output/*
+!battle-report-converter/output/.keep

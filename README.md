@@ -12,11 +12,12 @@ Open it as a canvas beside the chat in Cursor to explore the values interactivel
 
 ### Battle Report Converter
 
-Converts Tower game battle reports to CSV/TXT (tab-separated) format.
+Converts Tower game battle reports to CSV/TXT (tab-separated) format. Lives in `battle-report-converter/`.
 
-Place files in the `input/` folder, then run:
+Place files in the `battle-report-converter/input/` folder, then run:
 
 ```sh
+cd battle-report-converter
 ruby convert.rb
 ```
 
@@ -28,6 +29,7 @@ Existing files are overwritten.
 #### Testing
 
 ```sh
+cd battle-report-converter
 ruby spec.rb
 ```
 

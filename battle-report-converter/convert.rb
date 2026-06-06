@@ -2,6 +2,7 @@
 require 'json'
 require 'csv'
 require 'time'
+require 'set'
 
 SECTION_HEADERS = ['Battle Report', 'Combat', 'Utility', 'Enemies Destroyed', 'Bots', 'Guardian'].freeze
 
