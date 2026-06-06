@@ -51,25 +51,6 @@ import {
 const MAX_LEVEL = 699;
 const MAX_WORKSHOP = 60;
 
-// Intro Sprint: the first waves run faster. While inside the sprint window the
-// skip-reduction Battle Conditions (multiply + decay) do NOT apply. The base
-// sprint length depends on the Intro Sprint level; Intro Sprint Mastery then
-// multiplies that base (×1.0 at mastery 0 up to ×18 at mastery 10).
-const INTRO_SPRINT_BASE = [20, 30, 40, 50, 60, 80, 100]; // index = Intro Sprint level
-const INTRO_SPRINT_MULT = [1, 1.8, 3.6, 5.4, 7.2, 9, 10.8, 12.6, 14.4, 16.2, 18];
-const INTRO_SPRINT_MAX_LEVEL = INTRO_SPRINT_BASE.length - 1;
-const INTRO_SPRINT_MAX_MASTERY = INTRO_SPRINT_MULT.length - 1;
-
-function introSprintBase(level: number): number {
-  const l = Math.max(0, Math.min(INTRO_SPRINT_MAX_LEVEL, Math.round(level)));
-  return INTRO_SPRINT_BASE[l];
-}
-
-function introSprintWaves(level: number, mastery: number): number {
-  const m = Math.max(0, Math.min(INTRO_SPRINT_MAX_MASTERY, Math.round(mastery)));
-  return Math.round(introSprintBase(level) * INTRO_SPRINT_MULT[m]);
-}
-
 function chanceFromLevel(level: number): number {
   if (level <= 0) return 0;
   return 0.1 + (level - 1) * 0.05; // percent
@@ -129,11 +110,8 @@ function waveChance(
   flat: number,
   tier: Tier,
   wave: number,
-  introWaves: number,
 ): number {
   const base = chanceFromLevel(level) * wmult + flat;
-  // Inside the Intro Sprint window neither the multiply nor the decay applies.
-  if (wave <= introWaves) return Math.max(0, Math.min(100, base));
   const afterMultiply = base * tier.multiply;
   const subtract = tier.subPerStep * Math.floor(wave / tier.stepWaves);
   return Math.max(0, Math.min(100, afterMultiply - subtract));
@@ -162,10 +140,9 @@ function record(
   w: number,
   waves: number,
   step: number,
-  introWaves: number,
 ): void {
   if (acc.maxedWave === 0 && level >= MAX_LEVEL) acc.maxedWave = w;
-  const chance = waveChance(level, wmult, flat, tier, w, introWaves);
+  const chance = waveChance(level, wmult, flat, tier, w);
   acc.cumulative += chance / 100;
   if (chance > acc.peak) {
     acc.peak = chance;
@@ -191,7 +168,6 @@ function simulateBoth(
   freeRate: number,
   waves: number,
   tier: Tier,
-  introWaves: number,
 ): { health: TrackResult; attack: TrackResult } {
   const hMult = workshopMult(h.workshop);
   const aMult = workshopMult(a.workshop);
@@ -218,8 +194,8 @@ function simulateBoth(
     if (hLevel > MAX_LEVEL) hLevel = MAX_LEVEL;
     if (aLevel > MAX_LEVEL) aLevel = MAX_LEVEL;
 
-    record(H, hLevel, hMult, h.flat, tier, w, waves, step, introWaves);
-    record(A, aLevel, aMult, a.flat, tier, w, waves, step, introWaves);
+    record(H, hLevel, hMult, h.flat, tier, w, waves, step);
+    record(A, aLevel, aMult, a.flat, tier, w, waves, step);
   }
 
   return { health: H, attack: A };
@@ -367,10 +343,6 @@ export default function EnemyLevelSkipPlanner() {
   const [freePct, setFreePct] = useCanvasState("freePct", 83);
   const [waves, setWaves] = useCanvasState("waves", 1000);
 
-  const [introOn, setIntroOn] = useCanvasState("introOn", false);
-  const [introLevel, setIntroLevel] = useCanvasState("introLevel", INTRO_SPRINT_MAX_LEVEL);
-  const [introMastery, setIntroMastery] = useCanvasState("introMastery", INTRO_SPRINT_MAX_MASTERY);
-
   const [healthOn, setHealthOn] = useCanvasState("healthOn", true);
   const [healthStart, setHealthStart] = useCanvasState("healthStart", 320);
   const [healthFlat, setHealthFlat] = useCanvasState("healthFlat", 10);
@@ -383,7 +355,6 @@ export default function EnemyLevelSkipPlanner() {
 
   const tier = TIERS.find((t) => t.id === tierId) ?? TIERS[4];
   const freeRate = freePct / 100;
-  const introWaves = introOn ? introSprintWaves(introLevel, introMastery) : 0;
 
   // Cash upgrades are levels bought during the run, modeled as a one-time boost
   // to the starting level (per track), capped at 699.
@@ -401,7 +372,6 @@ export default function EnemyLevelSkipPlanner() {
     freeRate,
     waves,
     tier,
-    introWaves,
   );
 
   // Charts share the wave axis from whichever enabled track has it; both use
@@ -470,32 +440,6 @@ export default function EnemyLevelSkipPlanner() {
                 max={3000}
                 step={10}
                 onChange={setWaves}
-              />
-              <Divider />
-              <Checkbox
-                checked={introOn}
-                onChange={setIntroOn}
-                label="Use Intro Sprint (no skip reduction during sprint)"
-              />
-              <SliderRow
-                label="Intro Sprint level"
-                value={introLevel}
-                min={0}
-                max={INTRO_SPRINT_MAX_LEVEL}
-                suffix={introOn ? `base ${introSprintBase(introLevel)} waves` : "(off)"}
-                onChange={setIntroLevel}
-              />
-              <SliderRow
-                label="Intro Sprint Mastery"
-                value={introMastery}
-                min={0}
-                max={INTRO_SPRINT_MAX_MASTERY}
-                suffix={
-                  introOn
-                    ? `×${INTRO_SPRINT_MULT[introMastery]} → ${introWaves} waves`
-                    : "(off)"
-                }
-                onChange={setIntroMastery}
               />
             </Stack>
           </CardBody>
@@ -644,13 +588,6 @@ export default function EnemyLevelSkipPlanner() {
             • Reduction order per wave: <Text size="small" weight="semibold">(level chance + flat) ×
             Skip Reduction − Skip Decay(wave)</Text>, where Skip Decay subtracts a cumulative 1% every
             N waves (N set by league).
-          </Text>
-          <Text size="small">
-            • Intro Sprint: for the first <Text size="small" weight="semibold">{introWaves}</Text>{" "}
-            waves neither the Skip Reduction multiply nor the Skip Decay applies; the skip chance is
-            the raw (level chance + flat) value. Base length is set by Intro Sprint level (20–100
-            waves), then scaled by Intro Sprint Mastery (×1.8 per level, ×18 at max). After the
-            sprint, decay resumes by absolute wave number.
           </Text>
           <Text size="small">
             • "Total skips" = expected count = sum of per-wave skip chances over all waves.
