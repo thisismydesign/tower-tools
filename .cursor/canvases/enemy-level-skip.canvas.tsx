@@ -38,9 +38,14 @@ import {
 // Free (utility) upgrade: a % slider (0-300%) interpreted as the number of
 // skip levels gained per wave. 100% = 1 level/wave, 300% = 3 levels/wave.
 //
-// Skip reduction (tournament-tier dependent). Two mechanics:
-//   Overheat   : skip chance is multiplied by x  (one-time factor)
-//   Skip decay : skip chance has X% subtracted, growing every `stepWaves` waves
+// Skip reduction (tournament-league dependent). Two Battle Conditions:
+//   Skip Reduction (multiply): skip chance is multiplied by x0.VAL (one-time
+//     factor). VAL is tied to the BC level (set by league) and impacted by the
+//     Skip Reduction Lab + the generic BC reduction lab.
+//   Skip Decay: skip chance has VAL% subtracted, growing every N waves. VAL
+//     starts at 1% (impacted by the generic BC reduction lab); N is set by the
+//     BC level (league). The BC level is fixed by league and does not increase
+//     during the run (like More Bosses).
 // ----------------------------------------------------------------------------
 
 const MAX_LEVEL = 699;
@@ -58,19 +63,20 @@ function workshopMult(workshop: number): number {
 interface Tier {
   id: string;
   name: string;
-  multiply: number; // Overheat: skip chance * multiply
-  subPerStep: number; // Skip decay: percent subtracted per step
-  stepWaves: number; // a decay step is reached every this many waves
+  multiply: number; // Skip Reduction (multiply): skip chance * multiply
+  subPerStep: number; // Skip Decay: percent subtracted per step
+  stepWaves: number; // a decay step is reached every this many waves (N)
 }
 
-// Champion values are confirmed; the rest are DUMMY — replace later.
+// Confirmed values per tournament league. Copper/Silver have no skip-reduction
+// Battle Conditions (no multiply, no decay).
 const TIERS: Tier[] = [
   { id: "copper", name: "Copper", multiply: 1.0, subPerStep: 0, stepWaves: 1 },
-  { id: "silver", name: "Silver", multiply: 0.95, subPerStep: 0.5, stepWaves: 60 },
-  { id: "gold", name: "Gold", multiply: 0.9, subPerStep: 0.5, stepWaves: 50 },
-  { id: "platinum", name: "Platinum", multiply: 0.7, subPerStep: 1, stepWaves: 50 },
+  { id: "silver", name: "Silver", multiply: 1.0, subPerStep: 0, stepWaves: 1 },
+  { id: "gold", name: "Gold", multiply: 0.9, subPerStep: 1, stepWaves: 80 },
+  { id: "platinum", name: "Platinum", multiply: 0.75, subPerStep: 1, stepWaves: 60 },
   { id: "champion", name: "Champion", multiply: 0.6, subPerStep: 1, stepWaves: 40 },
-  { id: "legend", name: "Legend", multiply: 0.5, subPerStep: 1, stepWaves: 30 },
+  { id: "legends", name: "Legends", multiply: 0.45, subPerStep: 1, stepWaves: 20 },
 ];
 
 function round(n: number, d = 2): number {
@@ -537,20 +543,21 @@ export default function EnemyLevelSkipPlanner() {
       <Stack gap={6}>
         <H2>Tournament skip-reduction values</H2>
         <Table
-          headers={["Tier", "Overheat (×)", "Skip decay / step", "Step (waves)", "Decay @ wave 1000"]}
+          headers={["League", "Skip Reduction (×)", "Skip Decay", "Every N waves", "Decay @ wave 1000"]}
           columnAlign={["left", "right", "right", "right", "right"]}
           rowTone={TIERS.map((t) => (t.id === tierId ? "info" : undefined))}
           rows={TIERS.map((t) => [
             t.name,
             `×${t.multiply}`,
-            t.subPerStep > 0 ? `${t.subPerStep}%` : "—",
+            t.subPerStep > 0 ? `−${t.subPerStep}%` : "—",
             t.subPerStep > 0 ? String(t.stepWaves) : "—",
-            t.subPerStep > 0 ? `${round(t.subPerStep * Math.floor(1000 / t.stepWaves), 1)}%` : "—",
+            t.subPerStep > 0 ? `−${round(t.subPerStep * Math.floor(1000 / t.stepWaves), 1)}%` : "—",
           ])}
         />
         <Text size="small" tone="tertiary">
-          Champion confirmed (overheat ×0.6, skip decay 1% per 40 waves). Other tiers are still
-          dummy — replace when you have them.
+          Skip Reduction (multiply) is tied to the BC level set by league: Gold ×0.9, Platinum ×0.75,
+          Champion ×0.6, Legends ×0.45. Skip Decay subtracts 1% every N waves: Gold 80, Platinum 60,
+          Champion 40, Legends 20. BC levels are fixed by league and don't grow during the run.
         </Text>
       </Stack>
 
@@ -579,7 +586,8 @@ export default function EnemyLevelSkipPlanner() {
           </Text>
           <Text size="small">
             • Reduction order per wave: <Text size="small" weight="semibold">(level chance + flat) ×
-            Overheat − Skip decay(wave)</Text>, where skip decay grows by a fixed % every N waves.
+            Skip Reduction − Skip Decay(wave)</Text>, where Skip Decay subtracts a cumulative 1% every
+            N waves (N set by league).
           </Text>
           <Text size="small">
             • "Total skips" = expected count = sum of per-wave skip chances over all waves.
