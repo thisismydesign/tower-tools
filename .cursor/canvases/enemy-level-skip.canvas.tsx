@@ -418,7 +418,7 @@ export default function EnemyLevelSkipPlanner() {
                 />
               </Stack>
               <SliderRow
-                label="Bolt — workshop enhancement"
+                label="Workshop enhancement"
                 value={bolt}
                 min={0}
                 max={MAX_WORKSHOP}
