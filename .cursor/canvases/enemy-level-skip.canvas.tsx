@@ -544,7 +544,7 @@ export default function EnemyLevelSkipPlanner() {
         <H2>Tournament skip-reduction values</H2>
         <div style={{ overflowX: "auto" }}>
           <Table
-            headers={["League", "Skip Reduction (×)", "Skip Decay", "Every N waves", "Decay @ wave 1000"]}
+            headers={["League", "Skip Reduction (×)", "Skip Decay", "Every N waves", `Decay @ wave ${waves}`]}
             columnAlign={["left", "right", "right", "right", "right"]}
             rowTone={TIERS.map((t) => (t.id === tierId ? "info" : undefined))}
             rows={TIERS.map((t) => [
@@ -552,7 +552,7 @@ export default function EnemyLevelSkipPlanner() {
               `×${t.multiply}`,
               t.subPerStep > 0 ? `−${t.subPerStep}%` : "—",
               t.subPerStep > 0 ? String(t.stepWaves) : "—",
-              t.subPerStep > 0 ? `−${round(t.subPerStep * Math.floor(1000 / t.stepWaves), 1)}%` : "—",
+              t.subPerStep > 0 ? `−${round(t.subPerStep * Math.floor(waves / t.stepWaves), 1)}%` : "—",
             ])}
           />
         </div>
