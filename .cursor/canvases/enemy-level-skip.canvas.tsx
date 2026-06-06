@@ -402,7 +402,7 @@ export default function EnemyLevelSkipPlanner() {
       </Stack>
 
       {/* Controls */}
-      <Grid columns="minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)" gap={16} align="start">
+      <Grid columns="repeat(auto-fit, minmax(260px, 1fr))" gap={16} align="start">
         <Card>
           <CardHeader trailing={<Pill size="sm">{tier.name}</Pill>}>Run settings</CardHeader>
           <CardBody>
@@ -478,7 +478,7 @@ export default function EnemyLevelSkipPlanner() {
       {anyOn && hasWaves && (
         <Stack gap={10}>
           <H2>Run totals</H2>
-          <Grid columns={healthOn && attackOn ? 4 : 2} gap={16}>
+          <Grid columns="repeat(auto-fit, minmax(150px, 1fr))" gap={16}>
             {healthOn && (
               <>
                 <Stat
@@ -511,7 +511,7 @@ export default function EnemyLevelSkipPlanner() {
 
       {/* Charts */}
       {anyOn && hasWaves && categories.length > 1 && (
-        <Grid columns="minmax(0, 1fr) minmax(0, 1fr)" gap={16}>
+        <Grid columns="repeat(auto-fit, minmax(300px, 1fr))" gap={16}>
           <Stack gap={6}>
             <H2>Skip chance over the run</H2>
             <LineChart categories={categories} series={chanceSeries} valueSuffix="%" height={260} />
@@ -542,18 +542,20 @@ export default function EnemyLevelSkipPlanner() {
       {/* Tier reference */}
       <Stack gap={6}>
         <H2>Tournament skip-reduction values</H2>
-        <Table
-          headers={["League", "Skip Reduction (×)", "Skip Decay", "Every N waves", "Decay @ wave 1000"]}
-          columnAlign={["left", "right", "right", "right", "right"]}
-          rowTone={TIERS.map((t) => (t.id === tierId ? "info" : undefined))}
-          rows={TIERS.map((t) => [
-            t.name,
-            `×${t.multiply}`,
-            t.subPerStep > 0 ? `−${t.subPerStep}%` : "—",
-            t.subPerStep > 0 ? String(t.stepWaves) : "—",
-            t.subPerStep > 0 ? `−${round(t.subPerStep * Math.floor(1000 / t.stepWaves), 1)}%` : "—",
-          ])}
-        />
+        <div style={{ overflowX: "auto" }}>
+          <Table
+            headers={["League", "Skip Reduction (×)", "Skip Decay", "Every N waves", "Decay @ wave 1000"]}
+            columnAlign={["left", "right", "right", "right", "right"]}
+            rowTone={TIERS.map((t) => (t.id === tierId ? "info" : undefined))}
+            rows={TIERS.map((t) => [
+              t.name,
+              `×${t.multiply}`,
+              t.subPerStep > 0 ? `−${t.subPerStep}%` : "—",
+              t.subPerStep > 0 ? String(t.stepWaves) : "—",
+              t.subPerStep > 0 ? `−${round(t.subPerStep * Math.floor(1000 / t.stepWaves), 1)}%` : "—",
+            ])}
+          />
+        </div>
         <Text size="small" tone="tertiary">
           Skip Reduction (multiply) is tied to the BC level set by league: Gold ×0.9, Platinum ×0.75,
           Champion ×0.6, Legends ×0.45. Skip Decay subtracts 1% every N waves: Gold 80, Platinum 60,
