@@ -7,4 +7,6 @@ battle-report-converter/output/*
 node_modules/
 dist/
 
+.env
+
 notes.md
