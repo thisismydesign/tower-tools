@@ -3,6 +3,8 @@ battle-report-converter/input/*
 battle-report-converter/output/*
 !battle-report-converter/output/.keep
 
+battle-reports/
+
 # Web build
 node_modules/
 dist/
@@ -10,3 +12,6 @@ dist/
 .env
 
 notes.md
+
+# macOS
+.DS_Store

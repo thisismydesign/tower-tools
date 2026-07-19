@@ -14,9 +14,38 @@ Projects how many enemy levels you skip over a run — for both the health and a
 
 Estimates how many hits it takes to kill regular enemies and bosses with thorns. Set your thorn damage %, armor submod, tier, plasma cannon level, wall thorns, and Sharp Fortitude to see per-hit damage, boss hit breakdown after plasma pre-damage, and a tier resistance reference table.
 
+### Battle Report Importer
+
+Pulls battle reports out of Gmail drafts and writes each one to `battle-reports/` (gitignored), named after the battle's own timestamp — `2026.07.11 15:29.txt`. Lives in `battle-report-importer/`.
+
+Set `EMAIL_ADDRESS` and `IMAP_PASSWORD` (https://myaccount.google.com/apppasswords) in `.env` at the repo root. Then run:
+
+```sh
+pnpm import:battle-reports              # everything
+pnpm import:battle-reports -- --limit 5 # newest n only
+```
+
+Matching happens server-side via IMAP `SEARCH`, so non-reports are never downloaded, and the mailbox is opened read-only. Built on [`@thisismydesign/imap-importer`](https://www.npmjs.com/package/@thisismydesign/imap-importer). Files with the same battle timestamp overwrite.
+
 ### Battle Report Converter
 
-Converts Tower game battle reports to CSV/TXT (tab-separated) format. Lives in `battle-report-converter/`.
+Combines a folder of battle report `.txt` files into one tab-separated CSV. Lives in `battle-report-converter/`.
+
+```sh
+pnpm convert:battle-reports -- \
+  --timezone Europe/Budapest \
+  --input battle-reports \
+  --output battle-reports/combined.csv \
+  --tournament-detection-max-waves 3000
+```
+
+`--timezone` says which zone the reports' times are in. Run type and the `_Date`/`_Time` columns are stored in **UTC**. A run on a Wednesday or Saturday UTC below `--tournament-detection-max-waves` is a tournament; everything else is a farm.
+
+Importable too — `convertBattleReports({ timezone, write: false })` returns the CSV as a string instead of writing it.
+
+#### Legacy Ruby converter
+
+The original Ruby script still handles the older JSON bulk exports and single-report TXT conversion.
 
 Place files in the `battle-report-converter/input/` folder, then run:
 
