@@ -6,3 +6,5 @@ battle-report-converter/output/*
 # Web build
 node_modules/
 dist/
+
+notes.md
