@@ -43,33 +43,6 @@ pnpm convert:battle-reports -- \
 
 Importable too — `convertBattleReports({ timezone, write: false })` returns the CSV as a string instead of writing it.
 
-#### Legacy Ruby converter
-
-The original Ruby script still handles the older JSON bulk exports and single-report TXT conversion.
-
-Place files in the `battle-report-converter/input/` folder, then run:
-
-```sh
-cd battle-report-converter
-ruby convert.rb
-```
-
-- `.json` files (bulk exports) → `.csv` in `output/`
-- `.txt` files (single reports) → `.txt` with `Key<TAB>Value` format in `output/`
-
-Existing files are overwritten.
-
-#### Testing
-
-```sh
-cd battle-report-converter
-ruby spec.rb
-```
-
-Verifies both conversion scenarios:
-- `example/bulk_input.json` → `example/bulk_output.csv`
-- `example/single_input.txt` → `example/single_output.txt`
-
 ## Deployment
 
 ### Canvases
