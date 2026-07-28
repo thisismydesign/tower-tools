@@ -320,8 +320,17 @@ function leagueLabel(report: StatsReport): string {
 
 function TournamentsTab({ reports }: { reports: StatsReport[] }) {
   const latest = reports[reports.length - 1];
-  const bestWave = reports.reduce<number | null>(
-    (best, report) => (report.wave !== null && (best === null || report.wave > best) ? report.wave : best),
+
+  // Leagues rank by their tier; "best" is the highest league ever reached,
+  // and best wave is the highest wave within that league.
+  const bestTier = reports.reduce<number | null>(
+    (best, report) => (report.tier !== null && (best === null || report.tier > best) ? report.tier : best),
+    null,
+  );
+  const bestLeagueRuns = reports.filter((report) => report.tier === bestTier);
+  const best = bestLeagueRuns[0];
+  const bestWave = bestLeagueRuns.reduce<number | null>(
+    (max, report) => (report.wave !== null && (max === null || report.wave > max) ? report.wave : max),
     null,
   );
   const unknownTiers = [
@@ -335,14 +344,14 @@ function TournamentsTab({ reports }: { reports: StatsReport[] }) {
   return (
     <Stack gap={16}>
       <Grid columns="repeat(auto-fit, minmax(160px, 1fr))" gap={16}>
-        <Stat value={String(reports.length)} label="Tournaments" />
-        <Stat
-          value={latest ? latest.league ?? (latest.tier !== null ? `Tier ${latest.tier}?` : "—") : "—"}
-          label="Current league"
-          tone="info"
-        />
+        <Stat value={latest ? leagueLabel(latest) : "—"} label="Current league" tone="info" />
         <Stat value={latest?.wave !== null && latest ? String(latest.wave) : "—"} label="Latest wave" />
-        <Stat value={bestWave !== null ? String(bestWave) : "—"} label="Best wave" tone="success" />
+        <Stat value={best ? leagueLabel(best) : "—"} label="Best league" tone="success" />
+        <Stat
+          value={bestWave !== null ? String(bestWave) : "—"}
+          label={best ? `Best wave (${leagueLabel(best)})` : "Best wave"}
+          tone="success"
+        />
       </Grid>
 
       {unknownTiers.length > 0 && (
@@ -386,15 +395,14 @@ function TournamentsTab({ reports }: { reports: StatsReport[] }) {
 
       <div style={{ overflowX: "auto" }}>
         <Table
-          headers={["Date", "League", "Tier", "Wave", "Placement", "Coins earned"]}
-          columnAlign={["left", "left", "right", "right", "right", "right"]}
+          headers={["Date", "League", "Tier", "Wave", "Placement"]}
+          columnAlign={["left", "left", "right", "right", "right"]}
           rows={rows.map((report) => [
             dateLabel(report),
             report.league ?? (report.tier !== null ? `Tier ${report.tier}?` : "—"),
             report.tier !== null ? String(report.tier) : "—",
             report.wave !== null ? String(report.wave) : "—",
             report.placement !== null ? String(report.placement) : "—",
-            formatGameNumber(numericField(report, "coinsEarned")),
           ])}
           emptyMessage="No tournament runs in the loaded data."
         />
