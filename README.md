@@ -57,9 +57,7 @@ const csv = await convertBattleReports({
 
 ### Canvases
 
-The interactive tools are authored as [Cursor Canvases](https://cursor.com/docs/agent/tools/canvas) — single-file React components (`.cursor/canvases/*.canvas.tsx`) that import only from `cursor/canvas` and render beside the chat in the Cursor IDE.
-
-To make them usable by anyone, the same source is built into a static web app with a side nav to switch between calculators. A Vite alias (and a matching `tsconfig` path) resolves the `cursor/canvas` import to the [`@thisismydesign/cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web) Mantine-backed shim, so the canvas runs unchanged in the browser. The build output is hosted on GitHub Pages.
+Web dashboards and tools. Live at `canvases/<name>.canvas.tsx`. Built on `cursor/canvas` package, deployed to the web via [`@thisismydesign/cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web) Mantine-backed shim. Hosted on GitHub Pages.
 
 ### Running and deploying
 

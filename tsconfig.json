@@ -19,5 +19,5 @@
       "cursor/canvas": ["./node_modules/@thisismydesign/cursor-canvas-web"]
     }
   },
-  "include": ["src", ".cursor/canvases", "vite.config.ts", "battle-report-importer", "battle-report-converter"]
+  "include": ["src", "canvases", "vite.config.ts", "battle-report-importer", "battle-report-converter"]
 }

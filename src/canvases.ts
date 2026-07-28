@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 
-import EnemyLevelSkipPlanner from "../.cursor/canvases/enemy-level-skip.canvas";
-import ThornCalculator from "../.cursor/canvases/thorn-calculator.canvas";
+import EnemyLevelSkipPlanner from "../canvases/enemy-level-skip.canvas";
+import ThornCalculator from "../canvases/thorn-calculator.canvas";
 
 export interface CanvasEntry {
   id: string;
