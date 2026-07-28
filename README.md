@@ -53,6 +53,20 @@ const csv = await convertBattleReports({
 })
 ```
 
+### Battle Report Stats
+
+A canvas with Farm and Tournaments tabs: coins/hour and cells/hour charts across farm runs, and league/tier/wave/placement per tournament. It reads `battle-reports/00-stats.json` by default (served by the dev server); drag & drop or pick another stats JSON in the UI.
+
+The JSON comes from a standalone generator in `battle-report-stats/` — it parses the `.txt` reports directly (reusing the converter's key normalization so renamed report keys land on the same camelCase JSON keys), parses game numbers (`35.63B`) and durations into plain numbers, and stamps each report with its UTC battle date and run type using the same tournament detection as the converter:
+
+```sh
+pnpm stats:battle-reports   # battle-reports/*.txt -> battle-reports/00-stats.json
+```
+
+Defaults (`--input battle-reports --output battle-reports/00-stats.json --timezone Europe/Budapest --tournament-detection-max-waves 3000`) can all be overridden with flags.
+
+Tournament league is derived from the run's tier (`LEAGUE_BY_TIER` in `battle-report-stats/build.ts`: 1 Copper, 3 Silver, 5 Gold, 8 Platinum, 12 Champion, 17 Legend). Placements aren't in the reports — an optional `battle-reports/placements.json` mapping UTC date to placement (`{"2026-07-25": 3}`) fills that column.
+
 ## Deployment
 
 ### Canvases

@@ -31,7 +31,13 @@ Import new battle reports from Gmail drafts, then convert the full set into the 
      --tournament-detection-max-waves 3000
    ```
 
-4. Count reports again and tell the user: how many new reports were imported (after − before, plus the importer's own matched/wrote/skipped line) and how many total rows the converter wrote.
+4. Rebuild the stats JSON for the Battle Report Stats canvas:
+
+   ```sh
+   pnpm stats:battle-reports
+   ```
+
+5. Count reports again and tell the user: how many new reports were imported (after − before, plus the importer's own matched/wrote/skipped line), how many total rows the converter wrote, and the stats build's farm/tournament counts.
 
 ## Notes
 

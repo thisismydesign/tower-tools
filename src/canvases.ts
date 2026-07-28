@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import BattleReportStats from "../canvases/battle-report-stats.canvas";
 import EnemyLevelSkipPlanner from "../canvases/enemy-level-skip.canvas";
 import ThornCalculator from "../canvases/thorn-calculator.canvas";
 
@@ -20,6 +21,11 @@ export const CANVASES: CanvasEntry[] = [
     id: "thorn-calculator",
     title: "Thorn Calculator",
     Component: ThornCalculator,
+  },
+  {
+    id: "battle-report-stats",
+    title: "Battle Report Stats",
+    Component: BattleReportStats,
   },
 ];
 
