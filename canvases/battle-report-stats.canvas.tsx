@@ -187,6 +187,62 @@ function RateChart({
   );
 }
 
+const TIER_COLORS = [
+  "blue.6",
+  "teal.6",
+  "orange.6",
+  "violet.6",
+  "red.6",
+  "cyan.6",
+  "yellow.6",
+  "grape.6",
+  "lime.6",
+];
+
+function tierLabel(report: StatsReport): string {
+  return report.tier !== null ? `Tier ${report.tier}` : "Tier ?";
+}
+
+/** One series per tier: a tier change breaks the line, so a lone run at a
+    tier shows as a single dot. */
+function TierSplitChart({
+  title,
+  reports,
+  valueOf,
+  valueFormatter,
+}: {
+  title: string;
+  reports: StatsReport[];
+  valueOf: (report: StatsReport) => number | null;
+  valueFormatter?: (value: number) => string;
+}) {
+  return (
+    <Card>
+      <CardHeader>{title}</CardHeader>
+      <CardBody>
+        <MantineLineChart
+          h={260}
+          data={reports.map((report) => {
+            const value = valueOf(report);
+            return {
+              category: dateLabel(report),
+              ...(value !== null ? { [tierLabel(report)]: value } : {}),
+            };
+          })}
+          dataKey="category"
+          series={[...new Set(reports.map(tierLabel))]
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+            .map((tier, index) => ({ name: tier, color: TIER_COLORS[index % TIER_COLORS.length] }))}
+          curveType="monotone"
+          connectNulls={false}
+          withLegend
+          valueFormatter={valueFormatter}
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
 function FarmTab({ reports }: { reports: StatsReport[] }) {
   const [range, setRange] = useState("all");
   const [logScale, setLogScale] = useState(false);
@@ -229,6 +285,22 @@ function FarmTab({ reports }: { reports: StatsReport[] }) {
 
       <RateChart title="Coins per hour" reports={shown} fieldKey="coinsPerHour" logScale={logScale} tone="info" />
       <RateChart title="Cells per hour" reports={shown} fieldKey="cellsPerHour" logScale={logScale} tone="success" />
+
+      {shown.length > 0 && (
+        <>
+          <TierSplitChart title="Waves per run" reports={shown} valueOf={(report) => report.wave} />
+          <TierSplitChart
+            title="Time per run"
+            reports={shown}
+            valueOf={(report) =>
+              typeof report.fields.realTime === "number"
+                ? Number((report.fields.realTime / 3600).toFixed(2))
+                : null
+            }
+            valueFormatter={(value) => `${value.toFixed(1)}h`}
+          />
+        </>
+      )}
     </Stack>
   );
 }
