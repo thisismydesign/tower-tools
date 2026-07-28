@@ -2,7 +2,7 @@
 // Converts a folder of battle report .txt files into one tab-separated CSV.
 //
 //   pnpm convert:battle-reports -- --timezone Europe/Budapest \
-//     --input battle-reports --output battle-reports/combined.csv \
+//     --input battle-reports --output battle-reports/00-combined.csv \
 //     --tournament-detection-max-waves 3000
 //
 // Battle Date lines are wall-clock time in the given timezone; run type and
