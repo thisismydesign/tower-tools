@@ -67,12 +67,23 @@ async function main(): Promise<void> {
       continue
     }
 
-    const stamp = format(battleDate(body), FILE_NAME_FORMAT)
-    await writeFile(join(OUTPUT_DIR, `${stamp}.txt`), body, 'utf8')
-    written++
+    // A draft can match the search without being a report we can date; skip
+    // it rather than losing the rest of the batch.
+    try {
+      const stamp = format(battleDate(body), FILE_NAME_FORMAT)
+      await writeFile(join(OUTPUT_DIR, `${stamp}.txt`), body, 'utf8')
+      written++
+    } catch {
+      skipped++
+    }
   }
 
-  console.log(`matched ${matched}, wrote ${written} to ${OUTPUT_DIR}${skipped ? `, skipped ${skipped} without a text body` : ''}`)
+  console.log(
+    `matched ${matched}, wrote ${written} to ${OUTPUT_DIR}${skipped ? `, skipped ${skipped}` : ''}`,
+  )
 }
 
-main()
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error)
+  process.exit(1)
+})

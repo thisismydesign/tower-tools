@@ -8,6 +8,7 @@
 // Battle Date lines are wall-clock time in the given timezone; run type and
 // the _Date/_Time columns are derived from the corresponding UTC instant.
 
+import { realpathSync } from 'node:fs'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -56,7 +57,9 @@ export function parseReport(body: string): Record<string, string> {
     const line = raw.trim()
     if (!line) continue
 
-    const textKey = TEXT_KEYS.find((key) => line.startsWith(`${key} `))
+    // Matched with or without a value: a run that ended without dying writes
+    // a bare "Killed By", which must not be mistaken for a section header.
+    const textKey = TEXT_KEYS.find((key) => line === key || line.startsWith(`${key} `))
     if (textKey) {
       result[textKey] = line.slice(textKey.length).trim()
       continue
@@ -77,6 +80,9 @@ export function normalizeValue(value: string): string {
   return value
     .replace(/^\$/, '')
     .replace(/^x/, '')
+    // Newer reports annotate kill counts with a share, e.g. "35636 [21.9%]".
+    // Older ones give a bare count, so drop it to keep the column numeric.
+    .replace(/\s*\[[\d.]+%\]$/, '')
     .replace(/(\d+\.\d*?)0+([A-Za-z]*)$/, '$1$2')
     .replace(/\.([A-Za-z]*)$/, '$1')
 }
@@ -131,7 +137,9 @@ export async function convertBattleReports(options: ConvertOptions): Promise<str
   const rows = [['_Date', '_Time', '_Run Type', ...dataKeys]]
 
   for (const { fields, instant } of reports) {
-    const waves = Number(fields['Wave']?.replace(/[^\d]/g, '') ?? 0)
+    // Unknown wave count must not read as "below the threshold", which would
+    // classify the run as a tournament on a tournament day.
+    const waves = fields['Wave'] ? Number(fields['Wave'].replace(/[^\d]/g, '')) : Infinity
 
     rows.push([
       instant ? instant.toISOString().slice(0, 10) : '',
@@ -151,15 +159,19 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2)
   const flag = (name: string) => {
     const index = argv.indexOf(`--${name}`)
-    return index === -1 ? undefined : argv[index + 1]
+    if (index === -1) return undefined
+
+    // A missing value would otherwise swallow the next flag as its argument.
+    const value = argv[index + 1]
+    return value === undefined || value.startsWith('--') ? undefined : value
   }
 
   const timezone = flag('timezone')
   const inputDir = flag('input')
   const outputFile = flag('output')
-  const maxWaves = flag('tournament-detection-max-waves')
+  const maxWaves = Number(flag('tournament-detection-max-waves'))
 
-  if (!timezone || !inputDir || !outputFile || !maxWaves) {
+  if (!timezone || !inputDir || !outputFile || !Number.isFinite(maxWaves) || maxWaves <= 0) {
     console.error(
       'Usage: convert.ts --timezone <IANA zone> --input <dir> --output <file> --tournament-detection-max-waves <n>',
     )
@@ -170,14 +182,19 @@ async function main(): Promise<void> {
     inputDir,
     outputFile,
     timezone,
-    tournamentDetectionMaxWaves: Number(maxWaves),
+    tournamentDetectionMaxWaves: maxWaves,
   })
 
   const lines = csv.split('\n').length - 1
   console.log(`converted ${lines} report(s) to ${outputFile}`)
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// realpath both sides: argv[1] may be a symlink into this file.
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+
+if (invokedDirectly) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error)
     process.exit(1)

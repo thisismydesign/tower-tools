@@ -90,6 +90,11 @@ export const KEY_MAP: Record<string, string> = {
   // Fetched" and split it from the older column.
   'Coins/Coins Fetched': 'Coins Fetched',
 
+  // --- Guardian: these are what the guardian fetched, not run totals ----
+  // Newer reports report both, so merging them would mix two quantities.
+  'Guardian/Gems': 'Fetch Gems',
+  'Guardian/Reroll Shards': 'Reroll Shards Fetched',
+
   // --- Cash ------------------------------------------------------------
   'Cash/Cash Earned': 'Cash earned',
   'Cash/Golden Tower': 'Cash From Golden Tower',

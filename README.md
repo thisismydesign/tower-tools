@@ -41,7 +41,17 @@ pnpm convert:battle-reports -- \
 
 `--timezone` says which zone the reports' times are in. Run type and the `_Date`/`_Time` columns are stored in **UTC**. A run on a Wednesday or Saturday UTC below `--tournament-detection-max-waves` is a tournament; everything else is a farm.
 
-Importable too — `convertBattleReports({ timezone, write: false })` returns the CSV as a string instead of writing it.
+Importable too — passing `write: false` returns the CSV as a string instead of writing it:
+
+```ts
+const csv = await convertBattleReports({
+  timezone: 'Europe/Budapest',
+  inputDir: 'battle-reports',
+  outputFile: 'battle-reports/combined.csv',
+  tournamentDetectionMaxWaves: 3000,
+  write: false,
+})
+```
 
 ## Deployment
 
