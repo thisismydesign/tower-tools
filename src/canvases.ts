@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 import BattleReportStats from "../canvases/battle-report-stats.canvas";
 import EnemyLevelSkipPlanner from "../canvases/enemy-level-skip.canvas";
+import SubmodRerollCalculator from "../canvases/submod-reroll.canvas";
 import ThornCalculator from "../canvases/thorn-calculator.canvas";
 
 export interface CanvasEntry {
@@ -21,6 +22,11 @@ export const CANVASES: CanvasEntry[] = [
     id: "thorn-calculator",
     title: "Thorn Calculator",
     Component: ThornCalculator,
+  },
+  {
+    id: "submod-reroll",
+    title: "Submod Reroll",
+    Component: SubmodRerollCalculator,
   },
   {
     id: "battle-report-stats",
