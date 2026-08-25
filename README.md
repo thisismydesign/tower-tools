@@ -14,6 +14,10 @@ Projects how many enemy levels you skip over a run — for both the health and a
 
 Estimates how many hits it takes to kill regular enemies and bosses with thorns. Set your thorn damage %, armor submod, tier, plasma cannon level, wall thorns, and Sharp Fortitude to see per-hit damage, boss hit breakdown after plasma pre-damage, and a tier resistance reference table.
 
+### Submod Reroll Calculator
+
+Works out how many reroll shards it takes to land a specific sub-module effect. Pick the module type, target rarity, locked slots, and banned effects to see the per-slot and per-reroll hit chance, the expected (average) shard cost, and a shards-by-confidence table.
+
 ### Battle Report Importer
 
 Pulls battle reports out of Gmail drafts and writes each one to `battle-reports/` (gitignored), named after the battle's own timestamp — `2026.07.11 15:29.txt`. Lives in `battle-report-importer/`.
@@ -55,7 +59,7 @@ const csv = await convertBattleReports({
 
 ### Battle Report Stats
 
-A canvas with Farm and Tournaments tabs: coins/hour and cells/hour charts across farm runs, and league/tier/wave/placement per tournament. It reads `battle-reports/00-stats.json` by default (served by the dev server); drag & drop or pick another stats JSON in the UI.
+A tool with Farm and Tournaments tabs: coins/hour and cells/hour charts across farm runs, and league/tier/wave/placement per tournament. It reads `battle-reports/00-stats.json` by default (served by the dev server); drag & drop or pick another stats JSON in the UI.
 
 The JSON comes from a standalone generator in `battle-report-stats/` — it parses the `.txt` reports directly (reusing the converter's key normalization so renamed report keys land on the same camelCase JSON keys), parses game numbers (`35.63B`) and durations into plain numbers, and stamps each report with its UTC battle date and run type using the same tournament detection as the converter:
 
@@ -69,9 +73,19 @@ Tournament league is derived from the run's tier (`LEAGUE_BY_TIER` in `battle-re
 
 ## Deployment
 
-### Canvases
+### Web app
 
-Web dashboards and tools. Live at `canvases/<name>.canvas.tsx`. Built on `cursor/canvas` package, deployed to the web via [`@thisismydesign/cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web) Mantine-backed shim. Hosted on GitHub Pages.
+A plain React + [Mantine](https://mantine.dev/) single-page app under `src/`, hosted on GitHub Pages:
+
+```
+src/
+  main.tsx          React root + MantineProvider
+  App.tsx           AppShell layout, nav, hash routing — the tool list lives here
+  components/       Stat, SectionCard, DataTable, SliderField (bits Mantine doesn't ship)
+  tools/<Tool>.tsx  one self-contained file per tool
+```
+
+Each tool is a single default-exported React component; inputs persist via Mantine's `useLocalStorage`. To add one, drop `src/tools/<Tool>.tsx` in and add a line to `TOOLS` in `src/App.tsx` — its `id` doubles as the `#/<id>` route.
 
 ### Running and deploying
 

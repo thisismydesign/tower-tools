@@ -1,7 +1,16 @@
-import { mountCanvas } from "@thisismydesign/cursor-canvas-web/runtime";
 import "@mantine/core/styles.css";
 import "@mantine/charts/styles.css";
 
+import { MantineProvider } from "@mantine/core";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+
 import App from "./App";
 
-mountCanvas("root", <App />);
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <MantineProvider defaultColorScheme="auto">
+      <App />
+    </MantineProvider>
+  </StrictMode>,
+);

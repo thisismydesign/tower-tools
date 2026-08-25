@@ -1,68 +1,87 @@
-import { useCallback, useEffect, useState } from "react";
-import { NavLink, Stack, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  AppShell,
+  Burger,
+  Group,
+  NavLink,
+  Stack,
+  Text,
+  Title,
+  useComputedColorScheme,
+  useMantineColorScheme,
+} from "@mantine/core";
+import { useDisclosure, useHash } from "@mantine/hooks";
 
-import { CANVASES, DEFAULT_CANVAS_ID, canvasById } from "./canvases";
-import "./app.css";
+import BattleReportStats from "./tools/BattleReportStats";
+import EnemyLevelSkip from "./tools/EnemyLevelSkip";
+import SubmodReroll from "./tools/SubmodReroll";
+import ThornCalculator from "./tools/ThornCalculator";
 
-function readHashId(): string {
-  return window.location.hash.slice(1).replace(/^\//, "");
-}
+/** Nav entries; `id` doubles as the `#/<id>` route. Add a line per tool. */
+const TOOLS = [
+  { id: "enemy-level-skip", title: "Enemy Level Skip", Component: EnemyLevelSkip },
+  { id: "thorn-calculator", title: "Thorn Calculator", Component: ThornCalculator },
+  { id: "submod-reroll", title: "Submod Reroll", Component: SubmodReroll },
+  { id: "battle-report-stats", title: "Battle Report Stats", Component: BattleReportStats },
+];
 
-function useCanvasRoute(defaultId: string) {
-  const [activeId, setActiveId] = useState(() => {
-    const fromHash = readHashId();
-    return canvasById(fromHash) ? fromHash : defaultId;
-  });
-
-  useEffect(() => {
-    const syncFromHash = () => {
-      const fromHash = readHashId();
-      if (fromHash && canvasById(fromHash)) {
-        setActiveId(fromHash);
-      }
-    };
-    window.addEventListener("hashchange", syncFromHash);
-    return () => window.removeEventListener("hashchange", syncFromHash);
-  }, []);
-
-  const navigate = useCallback((id: string) => {
-    window.location.hash = `/${id}`;
-    setActiveId(id);
-  }, []);
-
-  return [activeId, navigate] as const;
+function ColorSchemeToggle() {
+  const { setColorScheme } = useMantineColorScheme();
+  const next = useComputedColorScheme("light") === "dark" ? "light" : "dark";
+  return (
+    <ActionIcon variant="default" size="lg" aria-label={`Switch to ${next} mode`} onClick={() => setColorScheme(next)}>
+      {next === "dark" ? "🌙" : "☀️"}
+    </ActionIcon>
+  );
 }
 
 export default function App() {
-  const [activeId, navigate] = useCanvasRoute(DEFAULT_CANVAS_ID);
-  const active = canvasById(activeId) ?? CANVASES[0];
-  const ActiveComponent = active?.Component;
+  // Hash routing keeps deep links working on GitHub Pages without rewrites.
+  const [hash, setHash] = useHash({ getInitialValueInEffect: false });
+  const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false);
+
+  const active = TOOLS.find((t) => `#/${t.id}` === hash) ?? TOOLS[0];
 
   return (
-    <div className="app-layout">
-      <nav className="app-nav" aria-label="Tools">
-        <Stack gap="md">
-          <Stack gap={2}>
+    <AppShell
+      header={{ height: 56 }}
+      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !navOpened } }}
+      padding="lg"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          <Group gap="sm" wrap="nowrap">
+            <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label="Toggle tools" />
             <Title order={4}>Tower Tools</Title>
-            <Text size="xs" c="dimmed">
+            <Text size="xs" c="dimmed" visibleFrom="sm">
               The Tower calculators
             </Text>
-          </Stack>
-          <Stack gap={4}>
-            {CANVASES.map((canvas) => (
-              <NavLink
-                key={canvas.id}
-                label={canvas.title}
-                active={canvas.id === active?.id}
-                onClick={() => navigate(canvas.id)}
-              />
-            ))}
-          </Stack>
+          </Group>
+          <ColorSchemeToggle />
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Navbar p="md">
+        <Stack gap={4}>
+          {TOOLS.map((tool) => (
+            <NavLink
+              key={tool.id}
+              label={tool.title}
+              active={tool.id === active.id}
+              onClick={() => {
+                setHash(`/${tool.id}`);
+                closeNav();
+              }}
+            />
+          ))}
         </Stack>
-      </nav>
-      <main className="app-main">
-        <div className="app-main-inner">{ActiveComponent ? <ActiveComponent /> : null}</div>
-      </main>
-    </div>
+      </AppShell.Navbar>
+
+      <AppShell.Main>
+        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+          <active.Component />
+        </div>
+      </AppShell.Main>
+    </AppShell>
   );
 }
