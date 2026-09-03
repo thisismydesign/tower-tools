@@ -23,8 +23,9 @@ import { DataTable, SectionCard, Stat } from "../components";
 //
 // Reads the JSON produced by `pnpm stats:battle-reports` (battle-reports/
 // 00-stats.json by default; drop or pick another file to override). Farm shows
-// coins/hour and cells/hour across runs; Tournaments shows league, tier,
-// wave, and placement per tournament.
+// coins/hour and cells/hour across runs, plus projected coins/day and the
+// all-time peak coins/minute; Tournaments shows league, tier, wave, and
+// placement per tournament.
 // ----------------------------------------------------------------------------
 
 // ---- Formatting ------------------------------------------------------------
@@ -62,6 +63,14 @@ function numericField(report: StatsReport, key: string): number | null {
   return typeof value === "number" ? value : null;
 }
 
+/** The run with the largest value for `key`, ignoring runs that don't carry it. */
+function bestBy(reports: StatsReport[], key: string): { report: StatsReport; value: number } | null {
+  return reports.reduce<{ report: StatsReport; value: number } | null>((best, report) => {
+    const value = numericField(report, key);
+    return value !== null && (best === null || value > best.value) ? { report, value } : best;
+  }, null);
+}
+
 function tierLabel(report: StatsReport): string {
   return report.tier !== null ? `Tier ${report.tier}` : "Tier ?";
 }
@@ -73,6 +82,7 @@ function leagueLabel(report: StatsReport): string {
 // ---- Charts ----------------------------------------------------------------
 
 const COINS_COLOR = "blue";
+const PEAK_COINS_COLOR = "grape";
 const CELLS_COLOR = "teal";
 
 const TIER_COLORS = ["blue", "teal", "orange", "violet", "red", "cyan", "yellow", "grape", "lime"];
@@ -201,6 +211,8 @@ function GroupedLineChart({
 
 // ---- Farm tab --------------------------------------------------------------
 
+const HOURS_PER_DAY = 24;
+
 const RANGE_OPTIONS = [
   { value: "all", label: "All runs" },
   { value: "100", label: "Last 100" },
@@ -214,6 +226,12 @@ function FarmTab({ reports }: { reports: StatsReport[] }) {
   const shown = range === "all" ? reports : reports.slice(-Number(range));
   const latest = reports[reports.length - 1];
   const tiers = tierSeries(shown);
+
+  // A day of farming at the pace of the most recent run.
+  const latestCoinsPerHour = latest ? numericField(latest, "coinsPerHour") : null;
+  const coinsPerDay = latestCoinsPerHour === null ? null : latestCoinsPerHour * HOURS_PER_DAY;
+  // Peak minute is a per-run record, so the all-time peak is the best of them.
+  const peakCoinsPerMinute = bestBy(reports, "highestCoinsPerMinute");
 
   return (
     <Stack gap="lg">
@@ -235,7 +253,7 @@ function FarmTab({ reports }: { reports: StatsReport[] }) {
       <SimpleGrid cols={{ base: 2, lg: 4 }} spacing="lg">
         <Stat value={String(reports.length)} label="Farm runs" />
         <Stat
-          value={latest ? formatGameNumber(numericField(latest, "coinsPerHour")) : "—"}
+          value={formatGameNumber(latestCoinsPerHour)}
           label="Latest coins/hour"
           color={COINS_COLOR}
         />
@@ -245,6 +263,23 @@ function FarmTab({ reports }: { reports: StatsReport[] }) {
           color={CELLS_COLOR}
         />
         <Stat value={latest && latest.tier !== null ? `T${latest.tier}` : "—"} label="Latest tier" />
+      </SimpleGrid>
+
+      <SimpleGrid cols={{ base: 2, lg: 4 }} spacing="lg">
+        <Stat
+          value={formatGameNumber(coinsPerDay)}
+          label="Coins/day at the latest rate"
+          color={COINS_COLOR}
+        />
+        <Stat
+          value={formatGameNumber(peakCoinsPerMinute?.value)}
+          label={
+            peakCoinsPerMinute
+              ? `Peak coins/minute (${dateLabel(peakCoinsPerMinute.report)})`
+              : "Peak coins/minute"
+          }
+          color={PEAK_COINS_COLOR}
+        />
       </SimpleGrid>
 
       <RateChart
