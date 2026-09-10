@@ -1,3 +1,8 @@
+# Personal Tower data
+battle-reports/*
+!battle-reports/.keep
+player-info/*
+!player-info/.keep
 battle-report-converter/input/*
 !battle-report-converter/input/.keep
 battle-report-converter/output/*
@@ -10,3 +15,5 @@ dist/
 .env
 
 notes.md
+
+.DS_Store
