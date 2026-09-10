@@ -212,49 +212,6 @@ function sequentialLevels(
   return { rangeLevel: lr, bonusLevel: lm, cost: spent };
 }
 
-interface PathStep {
-  step: number;
-  upgrade: "Range" | "Bonus";
-  from: number;
-  to: number;
-  cost: number;
-  cumulative: number;
-  after: Evaluation;
-}
-
-/** Order the upgrades between `start` and `target` by marginal gain per medal. */
-function pathTo(model: Model, startRange: number, startBonus: number, target: Evaluation): PathStep[] {
-  const steps: PathStep[] = [];
-  let lr = startRange;
-  let lm = startBonus;
-  let cumulative = 0;
-  let current = evaluate(model, lr, lm);
-  while (lr < target.rangeLevel || lm < target.bonusLevel) {
-    const canRange = lr < target.rangeLevel;
-    const canBonus = lm < target.bonusLevel;
-    const rangeEv = canRange ? evaluate(model, lr + 1, lm) : null;
-    const bonusEv = canBonus ? evaluate(model, lr, lm + 1) : null;
-    const rangeRate = rangeEv ? (rangeEv.value - current.value) / levelCost(lr + 1) : -Infinity;
-    const bonusRate = bonusEv ? (bonusEv.value - current.value) / levelCost(lm + 1) : -Infinity;
-    if (rangeEv && (!bonusEv || rangeRate >= bonusRate)) {
-      const cost = levelCost(lr + 1);
-      cumulative += cost;
-      steps.push({ step: steps.length + 1, upgrade: "Range", from: lr, to: lr + 1, cost, cumulative, after: rangeEv });
-      lr += 1;
-      current = rangeEv;
-    } else if (bonusEv) {
-      const cost = levelCost(lm + 1);
-      cumulative += cost;
-      steps.push({ step: steps.length + 1, upgrade: "Bonus", from: lm, to: lm + 1, cost, cumulative, after: bonusEv });
-      lm += 1;
-      current = bonusEv;
-    } else {
-      break;
-    }
-  }
-  return steps;
-}
-
 function NumberField({
   label,
   value,
@@ -399,6 +356,42 @@ function LevelValueField({
   );
 }
 
+function ScenarioStats({
+  title,
+  subtitle,
+  ev,
+  gain,
+  tone,
+}: {
+  title: string;
+  subtitle?: string;
+  ev: Evaluation;
+  gain: string;
+  tone?: "info" | "success";
+}) {
+  return (
+    <Stack gap={14}>
+      <Row align="center" gap={10} wrap>
+        <H2>{title}</H2>
+        <Pill size="sm" tone={tone ?? "neutral"}>{`R${ev.rangeLevel} / B${ev.bonusLevel}`}</Pill>
+        {subtitle ? (
+          <Text size="small" tone="tertiary">
+            {subtitle}
+          </Text>
+        ) : null}
+      </Row>
+      <Grid columns="repeat(auto-fit, minmax(140px, 1fr))" gap={16}>
+        <Stat value={`${ev.meters}m`} label="Range" />
+        <Stat value={`${round(ev.multiplier, 1)}×`} label="Multiplier" />
+        <Stat value={fmtPct(ev.coverage)} label="Kills in range" />
+        <Stat value={fmtPct(ev.effective)} label="Kills getting bonus" tone="info" />
+        <Stat value={fmtMult(ev.value)} label="Avg coin ×" tone={tone ?? "info"} />
+        <Stat value={gain} label="Coins vs. no Sniper" tone={tone} />
+      </Grid>
+    </Stack>
+  );
+}
+
 function SliderOnly({
   value,
   min,
@@ -427,7 +420,7 @@ function SliderOnly({
 }
 
 export default function GoldenBotSniperPlanner() {
-  const [medals, setMedals] = useCanvasState("medals", 10000);
+  const [totalMedals, setTotalMedals] = useCanvasState("totalMedals", 17000);
   const [sniperId, setSniperId] = useCanvasState("sniperId", "ancestral");
   const [rangeLevel, setRangeLevel] = useCanvasState("rangeLevel", 20);
   const [extraRange, setExtraRange] = useCanvasState("extraRange", 7);
@@ -449,15 +442,14 @@ export default function GoldenBotSniperPlanner() {
   const currentNoSniper = evaluate(noSniperModel, rangeLevel, bonusLevel);
   const spentSoFar = cumulativeCost(rangeLevel) + cumulativeCost(bonusLevel);
   const remainingToMax = cumulativeCost(RANGE_MAX_LEVEL) + cumulativeCost(BONUS_MAX_LEVEL) - spentSoFar;
+  const overspent = totalMedals < spentSoFar;
+  const unspent = Math.max(0, totalMedals - spentSoFar);
 
-  // --- Plan from current levels with the available medals ---
-  const plan = bestReachable(model, rangeLevel, bonusLevel, medals);
-  const path = pathTo(model, rangeLevel, bonusLevel, plan.target);
-  const rangeFirst = sequentialLevels(rangeLevel, bonusLevel, medals, "range");
-  const bonusFirst = sequentialLevels(rangeLevel, bonusLevel, medals, "bonus");
-  const rangeFirstEv = evaluate(model, rangeFirst.rangeLevel, rangeFirst.bonusLevel);
-  const bonusFirstEv = evaluate(model, bonusFirst.rangeLevel, bonusFirst.bonusLevel);
-  const gainPct = current.value > 0 ? ((plan.target.value - current.value) / current.value) * 100 : 0;
+  // --- Ideal split of the total, as if starting from level 0 / 0 ---
+  const ideal = bestReachable(model, 0, 0, totalMedals);
+
+  const gainVsBase = (v: number) =>
+    currentNoSniper.value > 0 ? `+${fmtPct(((v - currentNoSniper.value) / currentNoSniper.value) * 100)}` : "—";
 
   // --- Strategy curves as the total budget grows ---
   const chartStartRange = chartFromScratch ? 0 : rangeLevel;
@@ -507,8 +499,6 @@ export default function GoldenBotSniperPlanner() {
       fmtMult(evaluate(model, bf.rangeLevel, bf.bonusLevel).value),
     ];
   });
-
-  const hasBudget = medals > 0 && path.length > 0;
 
   return (
     <Stack gap={20} style={{ padding: 4 }}>
@@ -565,13 +555,17 @@ export default function GoldenBotSniperPlanner() {
           <CardBody>
             <Stack gap={14}>
               <NumberField
-                label="Medals to spend"
-                hint={`${fmtMedals(remainingToMax)} medals would max both`}
-                value={medals}
+                label="Total medals"
+                hint={
+                  overspent
+                    ? `Less than the ${fmtMedals(spentSoFar)} already spent on the levels above`
+                    : `${fmtMedals(spentSoFar)} already spent on the levels above, ${fmtMedals(unspent)} unspent`
+                }
+                value={totalMedals}
                 min={0}
                 max={100000}
                 step={0}
-                onChange={setMedals}
+                onChange={setTotalMedals}
               />
               <Stack gap={4}>
                 <Text size="small" tone="secondary">
@@ -601,16 +595,23 @@ export default function GoldenBotSniperPlanner() {
         </Card>
       </Grid>
 
-      <Stack gap={10}>
-        <H2>Right now</H2>
-        <Grid columns="repeat(auto-fit, minmax(160px, 1fr))" gap={16}>
-          <Stat value={`${current.meters}m`} label="Golden Bot range" />
-          <Stat value={`${round(current.multiplier, 1)}×`} label="Coin multiplier" />
-          <Stat value={fmtPct(current.coverage)} label="Kills in range" tone="info" />
-          <Stat value={fmtPct(current.effective)} label="Kills getting the bonus (with sniper)" tone="info" />
-          <Stat value={fmtMult(currentNoSniper.value)} label="Avg coin ×, no sniper" />
-          <Stat value={fmtMult(current.value)} label="Avg coin ×, with sniper" tone="success" />
-        </Grid>
+      <Stack gap={28}>
+        <ScenarioStats title="Right now, without Sniper" ev={currentNoSniper} gain="—" />
+        <Divider />
+        <ScenarioStats
+          title="Right now, with Sniper"
+          ev={current}
+          gain={gainVsBase(current.value)}
+          tone="info"
+        />
+        <Divider />
+        <ScenarioStats
+          title="Optimal Golden Bot with Sniper"
+          subtitle={`best split of ${fmtMedals(totalMedals)} medals from level 0 / 0, ${fmtMedals(ideal.cost)} used`}
+          ev={ideal.target}
+          gain={gainVsBase(ideal.target.value)}
+          tone="success"
+        />
         <Text size="small" tone="tertiary">
           Average coin multiplier per kill = 1 + (share of kills receiving the bonus) × (multiplier − 1).
           Kills that miss the bonus still pay 1×. Gilded Sniper adds {sniper.chance}% of the uncovered{" "}
@@ -618,134 +619,38 @@ export default function GoldenBotSniperPlanner() {
         </Text>
       </Stack>
 
-      {hasBudget ? (
-        <Stack gap={10}>
-          <H2>Best use of {fmtMedals(medals)} medals</H2>
-          <Grid columns="repeat(auto-fit, minmax(160px, 1fr))" gap={16}>
-            <Stat
-              value={`R${plan.target.rangeLevel} / B${plan.target.bonusLevel}`}
-              label={`Target levels (${plan.target.meters}m, ${round(plan.target.multiplier, 1)}×)`}
-              tone="success"
-            />
-            <Stat value={fmtMult(plan.target.value)} label="Avg coin × at target" tone="success" />
-            <Stat value={`+${fmtPct(gainPct)}`} label="Coins vs. now" tone="success" />
-            <Stat value={fmtMedals(plan.cost)} label="Medals used" />
-            <Stat value={fmtMult(rangeFirstEv.value)} label={`Range first (R${rangeFirst.rangeLevel} / B${rangeFirst.bonusLevel})`} tone="info" />
-            <Stat value={fmtMult(bonusFirstEv.value)} label={`Multiplier first (R${bonusFirst.rangeLevel} / B${bonusFirst.bonusLevel})`} tone="warning" />
-          </Grid>
-
-          <Callout tone="warning" title="Read this before you spend">
-            <Stack gap={6}>
-              <Text size="small">
-                <Text size="small" weight="semibold">
-                  1. Only range vs. bonus.
-                </Text>{" "}
-                This planner splits medals between Golden Bot range and coin bonus. Cooldown and
-                duration are not modelled; the bot is treated as always active.
-              </Text>
-              <Text size="small">
-                <Text size="small" weight="semibold">
-                  2. Enemies are not evenly spread.
-                </Text>{" "}
-                The model assumes kills are spread evenly, but they are not. There might be useful
-                range breakpoints where Golden Bot reliably covers Black Holes.
-              </Text>
-              <Text size="small">
-                <Text size="small" weight="semibold">
-                  3. A direction, not an answer.
-                </Text>{" "}
-                Many other things can affect these numbers. Use the result to decide which upgrade
-                to lean toward, not as a precise target.
-              </Text>
-            </Stack>
-          </Callout>
-
-          <Grid columns="repeat(auto-fit, minmax(300px, 1fr))" gap={16} align="start">
-            <Card>
-              <CardHeader trailing={<Pill size="sm">{path.length} upgrades</Pill>}>Upgrade order</CardHeader>
-              <CardBody>
-                <Stack gap={8}>
-                  <div style={{ overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
-                    <Table
-                      headers={["#", "Upgrade", "Level", "Cost", "Total", "Bonus reach", "Avg coin ×"]}
-                      columnAlign={["right", "left", "right", "right", "right", "right", "right"]}
-                      stickyHeader
-                      rowTone={path.map((s) => (s.upgrade === "Range" ? "info" : "warning"))}
-                      rows={path.map((s) => [
-                        String(s.step),
-                        s.upgrade,
-                        `${s.from} → ${s.to}`,
-                        fmtMedals(s.cost),
-                        fmtMedals(s.cumulative),
-                        fmtPct(s.after.effective),
-                        fmtMult(s.after.value),
-                      ])}
-                    />
-                  </div>
-                  <Text size="small" tone="tertiary">
-                    Upgrades between now and the target, ordered by coin gain per medal so the
-                    plan is also the best stopping point if you run short. Blue = range, amber =
-                    multiplier.
-                  </Text>
-                </Stack>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>Why</CardHeader>
-              <CardBody>
-                <Stack gap={8}>
-                  {rangeLevel < RANGE_MAX_LEVEL ? (
-                    <Text size="small">
-                      A range level adds 2m. At {current.meters}m that lifts in-range kills by about{" "}
-                      <Text size="small" weight="semibold">
-                        {fmtPct(
-                          Math.max(0, evaluate(model, rangeLevel + 1, bonusLevel).coverage - current.coverage),
-                          2,
-                        )}
-                      </Text>{" "}
-                      of all kills, but the sniper already gives {sniper.chance}% of those kills the
-                      bonus, so the net gain is only{" "}
-                      <Text size="small" weight="semibold">
-                        {fmtPct(
-                          Math.max(0, evaluate(model, rangeLevel + 1, bonusLevel).effective - current.effective),
-                          2,
-                        )}
-                      </Text>
-                      .
-                    </Text>
-                  ) : (
-                    <Text size="small">
-                      Range is maxed, so every remaining medal goes to the multiplier. Lower the
-                      range level to see how the range-vs-multiplier trade-off plays out.
-                    </Text>
-                  )}
-                  <Text size="small">
-                    A bonus level adds 0.2× to every kill that gets the bonus, which is{" "}
-                    <Text size="small" weight="semibold">
-                      {fmtPct(current.effective)}
-                    </Text>{" "}
-                    of kills with the sniper (vs. {fmtPct(current.coverage)} without). The sniper
-                    makes multiplier levels worth more and range levels worth less.
-                  </Text>
-                  <Text size="small" tone="tertiary">
-                    Next range level: {fmtMult(evaluate(model, Math.min(RANGE_MAX_LEVEL, rangeLevel + 1), bonusLevel).value)}
-                    {rangeLevel < RANGE_MAX_LEVEL ? ` for ${fmtMedals(levelCost(rangeLevel + 1))} medals` : " (maxed)"}
-                    . Next bonus level: {fmtMult(evaluate(model, rangeLevel, Math.min(BONUS_MAX_LEVEL, bonusLevel + 1)).value)}
-                    {bonusLevel < BONUS_MAX_LEVEL ? ` for ${fmtMedals(levelCost(bonusLevel + 1))} medals` : " (maxed)"}.
-                  </Text>
-                </Stack>
-              </CardBody>
-            </Card>
-          </Grid>
-        </Stack>
-      ) : (
-        <Callout tone="neutral" title={medals > 0 ? "Nothing left to buy" : "No medals"}>
-          {medals > 0
-            ? "Both upgrades are already at the target for this budget."
-            : "Enter how many medals you can spend to get an upgrade plan."}
+      {overspent ? (
+        <Callout tone="danger" title="Total is below what you've spent">
+          Your current levels cost {fmtMedals(spentSoFar)} medals, more than the total entered.
+          Raise the total or lower the levels.
         </Callout>
-      )}
+      ) : null}
+
+      <Callout tone="warning" title="Read this before you spend">
+        <Stack gap={6}>
+          <Text size="small">
+            <Text size="small" weight="semibold">
+              1. Only range vs. bonus.
+            </Text>{" "}
+            This planner splits medals between Golden Bot range and coin bonus. Cooldown and
+            duration are not modelled; the bot is treated as always active.
+          </Text>
+          <Text size="small">
+            <Text size="small" weight="semibold">
+              2. Enemies are not evenly spread.
+            </Text>{" "}
+            The model assumes kills are spread evenly, but they are not. There might be useful
+            range breakpoints where Golden Bot reliably covers Black Holes.
+          </Text>
+          <Text size="small">
+            <Text size="small" weight="semibold">
+              3. A direction, not an answer.
+            </Text>{" "}
+            Many other things can affect these numbers. Use the result to decide which upgrade
+            to lean toward, not as a precise target.
+          </Text>
+        </Stack>
+      </Callout>
 
       <Stack gap={10}>
         <Row align="center" gap={12} wrap>

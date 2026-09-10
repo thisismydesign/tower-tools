@@ -16,7 +16,7 @@ Estimates how many hits it takes to kill regular enemies and bosses with thorns.
 
 ### Golden Bot + Gilded Sniper Planner
 
-Finds the best split of medals between Golden Bot range and coin multiplier when the Gilded Sniper cannon module gives out-of-range kills a chance (10-40% by rarity) to receive active coin bonuses. Enter your medals, current range/bonus levels, extra range, the "kills in Golden Bot range" percentage from a battle report, and the sniper rarity to get the target levels, an ordered upgrade path, and a range-first vs. multiplier-first vs. optimal comparison.
+Finds the best split of medals between Golden Bot range and coin multiplier when the Gilded Sniper cannon module gives out-of-range kills a chance (10-40% by rarity) to receive active coin bonuses. Enter your total medals (including what is already invested in Golden Bot), current range/bonus levels, extra range, the "kills in Golden Bot range" percentage from a battle report, and the sniper rarity to get the target levels, an ordered upgrade path, and a range-first vs. multiplier-first vs. optimal comparison.
 
 ### Battle Report Converter
 
