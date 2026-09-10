@@ -62,7 +62,11 @@ import {
 //   share of active-time kills with bonus e = a + p * (1 - a)
 //   V = 1 + e * (M - 1)
 //   Enemies not covered still pay 1x, which is why V is not simply e * M.
-//   Uptime only rescales V - 1, so it never changes the optimal split.
+//   Uptime enters only through a = c / uptime. Without a sniper it just
+//   rescales V - 1; with a sniper it shifts the split, since the sniper's
+//   share is range-independent while a scales with 1 / uptime.
+//   Sync with other multipliers does NOT enter: dropping unsynced activations
+//   removes in-range and out-of-range kills in the same proportion.
 // ----------------------------------------------------------------------------
 
 const RANGE_BASE = 20;
@@ -889,8 +893,10 @@ export default function GoldenBotSniperPlanner() {
           <Text size="small">
             • Uptime = duration ÷ cooldown. The battle-report kills-in-range % is a share of all
             kills and already includes uptime, so it is capped at uptime and divided by it to get
-            the share of active-time kills in range. Uptime only rescales the score, so it never
-            changes the optimal split. Duration and cooldown upgrades are not planned.
+            the share of active-time kills in range. Partial sync with your other multipliers does
+            not change the split: every activation is assumed to look like the average one, so
+            dropping unsynced activations changes how many kills count, not their mix. Duration
+            and cooldown upgrades are not planned.
           </Text>
           <Text size="small">
             • Orbs, black hole and golden tower bonuses are unaffected by Golden Bot upgrades and
