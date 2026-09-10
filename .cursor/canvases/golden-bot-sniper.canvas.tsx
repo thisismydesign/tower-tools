@@ -42,7 +42,9 @@ import {
 //
 // Coverage model:
 //   c0 = measured share of kills inside Golden Bot range (battle report:
-//   "Killed with effect active" section, "Golden Bot N [x%]") at the current range.
+//   "Killed with effect active" section, "Golden Bot N [x%]") at the range r0 it
+//   was measured at. r0 is its own input so the level sliders never move the
+//   calibration point, and the from-scratch optimum stays independent of them.
 //   That share already folds in uptime: a kill can only be "in range" while
 //   the bot is active, so c0 <= uptime, where uptime = duration / cooldown.
 //   Coverage at another range r is extrapolated as c0 * (r / r0)^2, capped at
@@ -122,8 +124,8 @@ function fmtPct(v: number, d = 1): string {
 
 interface Model {
   extraRange: number;
-  refRangeLevel: number; // level at which coverage was measured
-  refCoverage: number; // % of kills inside range at refRangeLevel
+  refRangeMeters: number; // total range (levels + extra) at which coverage was measured
+  refCoverage: number; // % of kills inside range at refRangeMeters
   uptime: number; // % of time the bot is active (duration / cooldown)
   sniperChance: number; // %
 }
@@ -140,7 +142,7 @@ interface Evaluation {
 }
 
 function coverageAt(model: Model, rangeLevel: number): number {
-  const r0 = rangeMeters(model.refRangeLevel, model.extraRange);
+  const r0 = model.refRangeMeters;
   const r = rangeMeters(rangeLevel, model.extraRange);
   const cap = Math.max(0, Math.min(100, model.uptime));
   if (r0 <= 0) return Math.max(0, Math.min(cap, model.refCoverage));
@@ -222,6 +224,50 @@ function sequentialLevels(
     buyRange();
   }
   return { rangeLevel: lr, bonusLevel: lm, cost: spent };
+}
+
+interface UpgradeStep {
+  step: number;
+  upgrade: "Range" | "Bonus";
+  from: number;
+  to: number;
+  cost: number;
+  cumulative: number;
+  after: Evaluation;
+}
+
+/**
+ * Every remaining upgrade from `start` up to max on both tracks, in the order
+ * that gives the most coin gain per medal at each step.
+ */
+function nextUpgrades(model: Model, startRange: number, startBonus: number): UpgradeStep[] {
+  const steps: UpgradeStep[] = [];
+  let lr = startRange;
+  let lm = startBonus;
+  let cumulative = 0;
+  let current = evaluate(model, lr, lm);
+  while (lr < RANGE_MAX_LEVEL || lm < BONUS_MAX_LEVEL) {
+    const rangeEv = lr < RANGE_MAX_LEVEL ? evaluate(model, lr + 1, lm) : null;
+    const bonusEv = lm < BONUS_MAX_LEVEL ? evaluate(model, lr, lm + 1) : null;
+    const rangeRate = rangeEv ? (rangeEv.value - current.value) / levelCost(lr + 1) : -Infinity;
+    const bonusRate = bonusEv ? (bonusEv.value - current.value) / levelCost(lm + 1) : -Infinity;
+    if (rangeEv && (!bonusEv || rangeRate >= bonusRate)) {
+      const cost = levelCost(lr + 1);
+      cumulative += cost;
+      steps.push({ step: steps.length + 1, upgrade: "Range", from: lr, to: lr + 1, cost, cumulative, after: rangeEv });
+      lr += 1;
+      current = rangeEv;
+    } else if (bonusEv) {
+      const cost = levelCost(lm + 1);
+      cumulative += cost;
+      steps.push({ step: steps.length + 1, upgrade: "Bonus", from: lm, to: lm + 1, cost, cumulative, after: bonusEv });
+      lm += 1;
+      current = bonusEv;
+    } else {
+      break;
+    }
+  }
+  return steps;
 }
 
 function NumberField({
@@ -439,6 +485,7 @@ export default function GoldenBotSniperPlanner() {
   const [extraRange, setExtraRange] = useCanvasState("extraRange", 7);
   const [bonusLevel, setBonusLevel] = useCanvasState("bonusLevel", 16);
   const [coverage, setCoverage] = useCanvasState("coverage", 20);
+  const [measuredAtRange, setMeasuredAtRange] = useCanvasState("measuredAtRange", 67);
   const [duration, setDuration] = useCanvasState("duration", 26);
   const [cooldown, setCooldown] = useCanvasState("cooldown", 100);
   const [chartFromScratch, setChartFromScratch] = useCanvasState("chartFromScratch", true);
@@ -450,7 +497,7 @@ export default function GoldenBotSniperPlanner() {
 
   const model: Model = {
     extraRange,
-    refRangeLevel: rangeLevel,
+    refRangeMeters: measuredAtRange,
     refCoverage: coverage,
     uptime,
     sniperChance: sniper.chance,
@@ -466,6 +513,10 @@ export default function GoldenBotSniperPlanner() {
 
   // --- Ideal split of the total, as if starting from level 0 / 0 ---
   const ideal = bestReachable(model, 0, 0, totalMedals);
+
+  // --- Next upgrades from the current levels, best gain per medal first ---
+  const path = nextUpgrades(model, rangeLevel, bonusLevel);
+  const affordableSteps = path.filter((st) => st.cumulative <= unspent).length;
 
   const gainVsBase = (v: number) =>
     currentNoSniper.value > 0 ? `+${fmtPct(((v - currentNoSniper.value) / currentNoSniper.value) * 100)}` : "—";
@@ -629,6 +680,15 @@ export default function GoldenBotSniperPlanner() {
                 suffix="%"
                 onChange={setCoverage}
               />
+              <NumberField
+                label="Measured at range"
+                hint={`Your total Golden Bot range (levels + extra) in that battle. Current: ${current.meters}m`}
+                value={measuredAtRange}
+                min={1}
+                max={200}
+                suffix="m"
+                onChange={setMeasuredAtRange}
+              />
             </Stack>
           </CardBody>
         </Card>
@@ -711,6 +771,46 @@ export default function GoldenBotSniperPlanner() {
       </Callout>
 
       <Stack gap={10}>
+        <Row align="center" gap={8} wrap>
+          <H2>Next upgrades</H2>
+          <Pill size="sm" tone={affordableSteps > 0 ? "success" : "neutral"}>
+            {affordableSteps} of {path.length} affordable with {fmtMedals(unspent)} unspent
+          </Pill>
+        </Row>
+        {path.length > 0 ? (
+          <div style={{ overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
+            <Table
+              headers={["#", "Upgrade", "Level", "Cost", "Total", "Kills in range", "Getting bonus while active", "Avg coin × while active"]}
+              columnAlign={["right", "left", "right", "right", "right", "right", "right", "right"]}
+              stickyHeader
+              rowTone={path.map((st) => (st.cumulative <= unspent ? "success" : undefined))}
+              rows={path.map((st) => [
+                String(st.step),
+                <Pill key={st.step} size="sm" tone={st.upgrade === "Range" ? "info" : "warning"}>
+                  {st.upgrade}
+                </Pill>,
+                `${st.from} → ${st.to}`,
+                fmtMedals(st.cost),
+                fmtMedals(st.cumulative),
+                fmtPct(st.after.coverage),
+                fmtPct(st.after.activeEffective),
+                fmtMult(st.after.value),
+              ])}
+            />
+          </div>
+        ) : (
+          <Callout tone="neutral" title="Nothing left to buy">
+            Range and bonus are both at max level.
+          </Callout>
+        )}
+        <Text size="small" tone="tertiary">
+          Every remaining upgrade from your current levels, ordered by coin gain per medal at
+          each step. Blue = range, amber = bonus. Green rows are covered by your unspent medals;
+          "Total" is the running cost.
+        </Text>
+      </Stack>
+
+      <Stack gap={10}>
         <Row align="center" gap={12} wrap>
           <H2>Strategy comparison</H2>
           <Spacer />
@@ -728,11 +828,12 @@ export default function GoldenBotSniperPlanner() {
           "Range first" buys all range levels before any multiplier; "Multiplier first" the reverse;
           "Optimal mix" is the best reachable pair at each budget. The grey line shows the optimal
           mix without a Gilded Sniper for comparison. Coverage is extrapolated from your measured{" "}
-          {fmtPct(coverage)} at {current.meters}m.
+          {fmtPct(coverage)} at {measuredAtRange}m. The table below samples the same three curves at
+          round budgets and shows which levels the optimal mix lands on.
         </Text>
         <div style={{ overflowX: "auto" }}>
           <Table
-            headers={["Medals", "Optimal levels", "Range · mult", "Optimal", "Range first", "Multiplier first"]}
+            headers={["Medals spent", "Optimal levels", "Range · mult", "Optimal mix ×", "Range first ×", "Multiplier first ×"]}
             columnAlign={["right", "left", "left", "right", "right", "right"]}
             rows={milestoneRows}
           />
@@ -764,7 +865,7 @@ export default function GoldenBotSniperPlanner() {
             Tower-range amplification scales all ranges equally, so it cancels out.
           </Text>
           <Text size="small">
-            • Kills-in-range % is taken from your battle report at your current range and scaled to
+            • Kills-in-range % is taken from your battle report at the range you measured it at and scaled to
             other ranges by covered area, i.e. (new range ÷ current range)², capped at uptime. The
             range is a circle, so area grows with the square of the range.
           </Text>
