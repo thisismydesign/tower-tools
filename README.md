@@ -14,6 +14,10 @@ Projects how many enemy levels you skip over a run — for both the health and a
 
 Estimates how many hits it takes to kill regular enemies and bosses with thorns. Set your thorn damage %, armor submod, tier, plasma cannon level, wall thorns, and Sharp Fortitude to see per-hit damage, boss hit breakdown after plasma pre-damage, and a tier resistance reference table.
 
+### Golden Bot + Gilded Sniper Planner
+
+Finds the best split of medals between Golden Bot range and coin multiplier when the Gilded Sniper cannon module gives out-of-range kills a chance (10-40% by rarity) to receive active coin bonuses. Enter your medals, current range/bonus levels, extra range, the "kills in Golden Bot range" percentage from a battle report, and the sniper rarity to get the target levels, an ordered upgrade path, and a range-first vs. multiplier-first vs. optimal comparison.
+
 ### Battle Report Converter
 
 Converts Tower game battle reports to CSV/TXT (tab-separated) format. Lives in `battle-report-converter/`.

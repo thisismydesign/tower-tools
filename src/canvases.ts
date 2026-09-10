@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 import EnemyLevelSkipPlanner from "../.cursor/canvases/enemy-level-skip.canvas";
 import ThornCalculator from "../.cursor/canvases/thorn-calculator.canvas";
+import GoldenBotSniperPlanner from "../.cursor/canvases/golden-bot-sniper.canvas";
 
 export interface CanvasEntry {
   id: string;
@@ -20,6 +21,11 @@ export const CANVASES: CanvasEntry[] = [
     id: "thorn-calculator",
     title: "Thorn Calculator",
     Component: ThornCalculator,
+  },
+  {
+    id: "golden-bot-sniper",
+    title: "Golden Bot + Gilded Sniper",
+    Component: GoldenBotSniperPlanner,
   },
 ];
 
