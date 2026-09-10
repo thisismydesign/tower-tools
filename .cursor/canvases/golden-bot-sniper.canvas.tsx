@@ -53,10 +53,14 @@ import {
 //   enemies cluster along their approach and die where your damage lands.
 //   Treat range extrapolation as a rough guide, not a measurement.
 //
-// Objective (average coin multiplier per kill, relative to no Golden Bot):
-//   effective coverage e = c + p * (uptime - c)   (sniper only helps while active)
+// Objective: average coin multiplier per kill made WHILE THE BOT IS ACTIVE.
+//   Players make nearly all their income in that window because the other
+//   coin multipliers fire at the same time, so kills outside it are worth ~0.
+//   share of active-time kills in range   a = c / uptime
+//   share of active-time kills with bonus e = a + p * (1 - a)
 //   V = 1 + e * (M - 1)
 //   Enemies not covered still pay 1x, which is why V is not simply e * M.
+//   Uptime only rescales V - 1, so it never changes the optimal split.
 // ----------------------------------------------------------------------------
 
 const RANGE_BASE = 20;
@@ -129,9 +133,10 @@ interface Evaluation {
   bonusLevel: number;
   meters: number;
   multiplier: number;
-  coverage: number; // % of kills inside range
-  effective: number; // % of kills receiving the multiplier (incl. sniper)
-  value: number; // average coin multiplier per kill
+  coverage: number; // % of all kills inside range (battle-report scale)
+  activeCoverage: number; // % of active-time kills inside range
+  activeEffective: number; // % of active-time kills receiving the multiplier (incl. sniper)
+  value: number; // average coin multiplier per active-time kill
 }
 
 function coverageAt(model: Model, rangeLevel: number): number {
@@ -147,7 +152,8 @@ function evaluate(model: Model, rangeLevel: number, bonusLevel: number): Evaluat
   const coverage = coverageAt(model, rangeLevel);
   const uptime = Math.max(0, Math.min(100, model.uptime));
   const sniper = Math.max(0, Math.min(100, model.sniperChance)) / 100;
-  const effective = coverage + sniper * Math.max(0, uptime - coverage);
+  const activeCoverage = uptime > 0 ? Math.min(100, (coverage / uptime) * 100) : 0;
+  const activeEffective = activeCoverage + sniper * (100 - activeCoverage);
   const multiplier = bonusMultiplier(bonusLevel);
   return {
     rangeLevel,
@@ -155,8 +161,9 @@ function evaluate(model: Model, rangeLevel: number, bonusLevel: number): Evaluat
     meters: rangeMeters(rangeLevel, model.extraRange),
     multiplier,
     coverage,
-    effective,
-    value: 1 + (effective / 100) * (multiplier - 1),
+    activeCoverage,
+    activeEffective,
+    value: 1 + (activeEffective / 100) * (multiplier - 1),
   };
 }
 
@@ -389,8 +396,9 @@ function ScenarioStats({
         <Stat value={`${ev.meters}m`} label="Range" />
         <Stat value={`${round(ev.multiplier, 1)}×`} label="Multiplier" />
         <Stat value={fmtPct(ev.coverage)} label="Kills in range" />
-        <Stat value={fmtPct(ev.effective)} label="Kills getting bonus" tone="info" />
-        <Stat value={fmtMult(ev.value)} label="Avg coin ×" tone={tone ?? "info"} />
+        <Stat value={fmtPct(ev.activeCoverage)} label="In range while active" />
+        <Stat value={fmtPct(ev.activeEffective)} label="Getting bonus while active" tone="info" />
+        <Stat value={fmtMult(ev.value)} label="Avg coin × while active" tone={tone ?? "info"} />
         <Stat value={gain} label="Coins vs. no Sniper" tone={tone} />
       </Grid>
     </Stack>
@@ -644,11 +652,12 @@ export default function GoldenBotSniperPlanner() {
           tone="success"
         />
         <Text size="small" tone="tertiary">
-          Average coin multiplier per kill = 1 + (share of kills receiving the bonus) × (multiplier − 1).
-          Kills that miss the bonus still pay 1×. The bot is active {fmtPct(uptime)} of the time
-          ({duration}s every {cooldown}s), so at most that share of kills can be in range. Gilded
-          Sniper adds {sniper.chance}% of the {fmtPct(Math.max(0, uptime - current.coverage))} of
-          kills made while the bot is active but out of range.
+          Only kills made while Golden Bot is active count. The bot is active {fmtPct(uptime)} of
+          the time ({duration}s every {cooldown}s), so your {fmtPct(coverage)} kills-in-range means{" "}
+          {fmtPct(current.activeCoverage)} of active-time kills are inside the circle. Avg coin ×
+          while active = 1 + (share of active-time kills getting the bonus) × (multiplier − 1);
+          kills that miss the bonus still pay 1×. Gilded Sniper adds {sniper.chance}% of the{" "}
+          {fmtPct(100 - current.activeCoverage)} of active-time kills outside the circle.
         </Text>
       </Stack>
 
@@ -678,14 +687,22 @@ export default function GoldenBotSniperPlanner() {
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
-              2. Enemies are not evenly spread.
+              2. Only coins during Golden Bot count.
+            </Text>{" "}
+            Players make almost all their income while Golden Bot is active, because the other
+            coin multipliers go off at the same time. Kills outside its duration are treated as
+            worth 0, so every number here is per kill made while the bot is active.
+          </Text>
+          <Text size="small">
+            <Text size="small" weight="semibold">
+              3. Enemies are not evenly spread.
             </Text>{" "}
             The model assumes kills are spread evenly, but they are not. There might be useful
             range breakpoints where Golden Bot reliably covers Black Holes.
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
-              3. A direction, not an answer.
+              4. A direction, not an answer.
             </Text>{" "}
             Many other things can affect these numbers. Use the result to decide which upgrade
             to lean toward, not as a precise target.
@@ -706,7 +723,7 @@ export default function GoldenBotSniperPlanner() {
         </Row>
         <LineChart categories={chartCategories} series={chartSeries} height={280} />
         <Text size="small" tone="tertiary">
-          Average coin multiplier vs. medals spent{" "}
+          Average coin multiplier per active-time kill vs. medals spent{" "}
           {chartFromScratch ? "starting from an unupgraded Golden Bot" : "on top of your current levels"}.
           "Range first" buys all range levels before any multiplier; "Multiplier first" the reverse;
           "Optimal mix" is the best reachable pair at each budget. The grey line shows the optimal
@@ -758,17 +775,20 @@ export default function GoldenBotSniperPlanner() {
             current range is exact; every other range is an estimate.
           </Text>
           <Text size="small">
-            • Gilded Sniper: each kill outside the range gets the bonus with the rarity's chance
-            while the bot is active. Effective share = in-range % + chance × (uptime − in-range %).
+            • Gilded Sniper: each active-time kill outside the range gets the bonus with the
+            rarity's chance. Share getting the bonus = in-range share + chance × (1 − in-range
+            share), both measured over active-time kills.
           </Text>
           <Text size="small">
-            • Score = average coin multiplier per kill = 1 + effective share × (multiplier − 1).
+            • Score = average coin multiplier per kill made while the bot is active = 1 + share
+            getting the bonus × (multiplier − 1). Kills outside the bot's duration are ignored.
             Enemies without the bonus still pay 1×, so this is not simply share × multiplier.
           </Text>
           <Text size="small">
-            • Uptime = duration ÷ cooldown. The battle-report kills-in-range % already includes
-            uptime (a kill only counts while the bot is active), so it is capped at uptime.
-            Duration and cooldown upgrades are not planned.
+            • Uptime = duration ÷ cooldown. The battle-report kills-in-range % is a share of all
+            kills and already includes uptime, so it is capped at uptime and divided by it to get
+            the share of active-time kills in range. Uptime only rescales the score, so it never
+            changes the optimal split. Duration and cooldown upgrades are not planned.
           </Text>
           <Text size="small">
             • Orbs, black hole and golden tower bonuses are unaffected by Golden Bot upgrades and
