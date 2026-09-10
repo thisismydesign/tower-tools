@@ -43,8 +43,10 @@ import {
 // Coverage model:
 //   c0 = measured share of kills inside Golden Bot range (battle report:
 //   "Killed with effect active" section, "Golden Bot N [x%]") at the current range.
+//   That share already folds in uptime: a kill can only be "in range" while
+//   the bot is active, so c0 <= uptime, where uptime = duration / cooldown.
 //   Coverage at another range r is extrapolated as c0 * (r / r0)^2, capped at
-//   100%. The bot is treated as always active (cooldown / duration ignored).
+//   uptime.
 //   The square is because the range is a circle, so covered area grows with
 //   the square of the range (radius or diameter, the ratio is the same).
 //   This assumes kills are spread evenly over that area, which they are not:
@@ -52,7 +54,7 @@ import {
 //   Treat range extrapolation as a rough guide, not a measurement.
 //
 // Objective (average coin multiplier per kill, relative to no Golden Bot):
-//   effective coverage e = c + p * (100 - c)
+//   effective coverage e = c + p * (uptime - c)   (sniper only helps while active)
 //   V = 1 + e * (M - 1)
 //   Enemies not covered still pay 1x, which is why V is not simply e * M.
 // ----------------------------------------------------------------------------
@@ -118,6 +120,7 @@ interface Model {
   extraRange: number;
   refRangeLevel: number; // level at which coverage was measured
   refCoverage: number; // % of kills inside range at refRangeLevel
+  uptime: number; // % of time the bot is active (duration / cooldown)
   sniperChance: number; // %
 }
 
@@ -134,15 +137,17 @@ interface Evaluation {
 function coverageAt(model: Model, rangeLevel: number): number {
   const r0 = rangeMeters(model.refRangeLevel, model.extraRange);
   const r = rangeMeters(rangeLevel, model.extraRange);
-  if (r0 <= 0) return Math.max(0, Math.min(100, model.refCoverage));
+  const cap = Math.max(0, Math.min(100, model.uptime));
+  if (r0 <= 0) return Math.max(0, Math.min(cap, model.refCoverage));
   const c = model.refCoverage * Math.pow(Math.max(0, r) / r0, COVERAGE_EXPONENT);
-  return Math.max(0, Math.min(100, c));
+  return Math.max(0, Math.min(cap, c));
 }
 
 function evaluate(model: Model, rangeLevel: number, bonusLevel: number): Evaluation {
   const coverage = coverageAt(model, rangeLevel);
+  const uptime = Math.max(0, Math.min(100, model.uptime));
   const sniper = Math.max(0, Math.min(100, model.sniperChance)) / 100;
-  const effective = coverage + sniper * (100 - coverage);
+  const effective = coverage + sniper * Math.max(0, uptime - coverage);
   const multiplier = bonusMultiplier(bonusLevel);
   return {
     rangeLevel,
@@ -426,14 +431,20 @@ export default function GoldenBotSniperPlanner() {
   const [extraRange, setExtraRange] = useCanvasState("extraRange", 7);
   const [bonusLevel, setBonusLevel] = useCanvasState("bonusLevel", 16);
   const [coverage, setCoverage] = useCanvasState("coverage", 20);
+  const [duration, setDuration] = useCanvasState("duration", 26);
+  const [cooldown, setCooldown] = useCanvasState("cooldown", 100);
   const [chartFromScratch, setChartFromScratch] = useCanvasState("chartFromScratch", true);
 
   const sniper = SNIPER_RARITIES.find((r) => r.id === sniperId) ?? SNIPER_RARITIES[0];
+
+  const uptime = cooldown > 0 ? Math.min(100, (duration / cooldown) * 100) : 100;
+  const coverageAboveUptime = coverage > uptime + 1e-9;
 
   const model: Model = {
     extraRange,
     refRangeLevel: rangeLevel,
     refCoverage: coverage,
+    uptime,
     sniperChance: sniper.chance,
   };
   const noSniperModel: Model = { ...model, sniperChance: 0 };
@@ -544,6 +555,26 @@ export default function GoldenBotSniperPlanner() {
                 decimals={1}
                 onChange={setBonusLevel}
               />
+              <Divider />
+              <NumberField
+                label="Duration"
+                hint="20–35s from levels, up to 45s with labs"
+                value={duration}
+                min={1}
+                max={120}
+                step={0.5}
+                suffix="s"
+                onChange={setDuration}
+              />
+              <NumberField
+                label="Cooldown"
+                hint={`120–75s from levels, down to 50s with labs. Uptime ${fmtPct(uptime)}`}
+                value={cooldown}
+                min={1}
+                max={300}
+                suffix="s"
+                onChange={setCooldown}
+              />
             </Stack>
           </CardBody>
         </Card>
@@ -614,10 +645,20 @@ export default function GoldenBotSniperPlanner() {
         />
         <Text size="small" tone="tertiary">
           Average coin multiplier per kill = 1 + (share of kills receiving the bonus) × (multiplier − 1).
-          Kills that miss the bonus still pay 1×. Gilded Sniper adds {sniper.chance}% of the uncovered{" "}
-          {fmtPct(100 - current.coverage)} of kills.
+          Kills that miss the bonus still pay 1×. The bot is active {fmtPct(uptime)} of the time
+          ({duration}s every {cooldown}s), so at most that share of kills can be in range. Gilded
+          Sniper adds {sniper.chance}% of the {fmtPct(Math.max(0, uptime - current.coverage))} of
+          kills made while the bot is active but out of range.
         </Text>
       </Stack>
+
+      {coverageAboveUptime ? (
+        <Callout tone="danger" title="Kills in range exceeds uptime">
+          {fmtPct(coverage)} of kills can't be inside the range if the bot is only active{" "}
+          {fmtPct(uptime)} of the time. Check the duration, cooldown, or the battle-report value.
+          Coverage is capped at uptime below.
+        </Callout>
+      ) : null}
 
       {overspent ? (
         <Callout tone="danger" title="Total is below what you've spent">
@@ -632,8 +673,8 @@ export default function GoldenBotSniperPlanner() {
             <Text size="small" weight="semibold">
               1. Only range vs. bonus.
             </Text>{" "}
-            This planner splits medals between Golden Bot range and coin bonus. Cooldown and
-            duration are not modelled; the bot is treated as always active.
+            This planner splits medals between Golden Bot range and coin bonus. Duration and
+            cooldown only set the uptime; upgrading them is not planned here.
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
@@ -707,7 +748,7 @@ export default function GoldenBotSniperPlanner() {
           </Text>
           <Text size="small">
             • Kills-in-range % is taken from your battle report at your current range and scaled to
-            other ranges by covered area, i.e. (new range ÷ current range)², capped at 100%. The
+            other ranges by covered area, i.e. (new range ÷ current range)², capped at uptime. The
             range is a circle, so area grows with the square of the range.
           </Text>
           <Text size="small">
@@ -718,14 +759,16 @@ export default function GoldenBotSniperPlanner() {
           </Text>
           <Text size="small">
             • Gilded Sniper: each kill outside the range gets the bonus with the rarity's chance
-            while the bot is active. Effective share = in-range % + chance × (100% − in-range %).
+            while the bot is active. Effective share = in-range % + chance × (uptime − in-range %).
           </Text>
           <Text size="small">
             • Score = average coin multiplier per kill = 1 + effective share × (multiplier − 1).
             Enemies without the bonus still pay 1×, so this is not simply share × multiplier.
           </Text>
           <Text size="small">
-            • Cooldown and duration upgrades are ignored; the bot is treated as always active.
+            • Uptime = duration ÷ cooldown. The battle-report kills-in-range % already includes
+            uptime (a kill only counts while the bot is active), so it is capped at uptime.
+            Duration and cooldown upgrades are not planned.
           </Text>
           <Text size="small">
             • Orbs, black hole and golden tower bonuses are unaffected by Golden Bot upgrades and
