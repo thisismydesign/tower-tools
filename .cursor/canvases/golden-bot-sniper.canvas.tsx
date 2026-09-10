@@ -743,7 +743,8 @@ export default function GoldenBotSniperPlanner() {
               1. Only range vs. bonus.
             </Text>{" "}
             This planner splits medals between Golden Bot range and coin bonus. Duration and
-            cooldown only set the uptime; upgrading them is not planned here.
+            cooldown only set the uptime and are assumed to match UW sync. When using Galaxy
+            Compressor you might want to prioritise duration & cooldown, which is not covered here.
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
