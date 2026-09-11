@@ -67,6 +67,11 @@ import {
 //   share is range-independent while a scales with 1 / uptime.
 //   Sync with other multipliers does NOT enter: dropping unsynced activations
 //   removes in-range and out-of-range kills in the same proportion.
+//   Whole-run multiplier W = 1 + uptime * (V - 1): the same score spread over
+//   all kills, assuming coins are spread evenly over the run. W - 1 is V - 1
+//   scaled by a constant, so both rank upgrades identically; W is shown
+//   because it is what a player sees when they compare runs with and
+//   without the bot.
 // ----------------------------------------------------------------------------
 
 const RANGE_BASE = 20;
@@ -143,6 +148,7 @@ interface Evaluation {
   activeCoverage: number; // % of active-time kills inside range
   activeEffective: number; // % of active-time kills receiving the multiplier (incl. sniper)
   value: number; // average coin multiplier per active-time kill
+  wholeRun: number; // average coin multiplier per kill over the whole run, if coins are spread evenly
 }
 
 function coverageAt(model: Model, rangeLevel: number): number {
@@ -161,6 +167,7 @@ function evaluate(model: Model, rangeLevel: number, bonusLevel: number): Evaluat
   const activeCoverage = uptime > 0 ? Math.min(100, (coverage / uptime) * 100) : 0;
   const activeEffective = activeCoverage + sniper * (100 - activeCoverage);
   const multiplier = bonusMultiplier(bonusLevel);
+  const value = 1 + (activeEffective / 100) * (multiplier - 1);
   return {
     rangeLevel,
     bonusLevel,
@@ -169,7 +176,8 @@ function evaluate(model: Model, rangeLevel: number, bonusLevel: number): Evaluat
     coverage,
     activeCoverage,
     activeEffective,
-    value: 1 + (activeEffective / 100) * (multiplier - 1),
+    value,
+    wholeRun: 1 + (uptime / 100) * (value - 1),
   };
 }
 
@@ -449,6 +457,7 @@ function ScenarioStats({
         <Stat value={fmtPct(ev.activeCoverage)} label="In range while active" />
         <Stat value={fmtPct(ev.activeEffective)} label="Getting bonus while active" tone="info" />
         <Stat value={fmtMult(ev.value)} label="Avg coin × while active" tone={tone ?? "info"} />
+        <Stat value={fmtMult(ev.wholeRun)} label="Whole-run coin ×" tone={tone ?? "info"} />
         <Stat value={gain} label="Coins vs. no Sniper" tone={tone} />
       </Grid>
     </Stack>
@@ -569,6 +578,7 @@ export default function GoldenBotSniperPlanner() {
       `R${opt.rangeLevel} / B${opt.bonusLevel}`,
       `${opt.meters}m · ${round(opt.multiplier, 1)}×`,
       fmtMult(opt.value),
+      fmtMult(opt.wholeRun),
       fmtMult(evaluate(model, rf.rangeLevel, rf.bonusLevel).value),
       fmtMult(evaluate(model, bf.rangeLevel, bf.bonusLevel).value),
     ];
@@ -722,6 +732,8 @@ export default function GoldenBotSniperPlanner() {
           while active = 1 + (share of active-time kills getting the bonus) × (multiplier − 1);
           kills that miss the bonus still pay 1×. Gilded Sniper adds {sniper.chance}% of the{" "}
           {fmtPct(100 - current.activeCoverage)} of active-time kills outside the circle.
+          Whole-run coin × spreads the same gain over all kills, 1 + uptime × (avg coin × while
+          active − 1), assuming coins are spread evenly over the run.
         </Text>
       </Stack>
 
@@ -760,14 +772,22 @@ export default function GoldenBotSniperPlanner() {
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
-              3. Enemies are not evenly spread.
+              3. The score is relative, not your total income.
+            </Text>{" "}
+            Other coin multipliers stack on top of Golden Bot and cancel out. "Avg coin × while
+            active" is how much more a kill in the bot's window pays; "Whole-run coin ×" spreads
+            that over the whole run, which is why it is much lower.
+          </Text>
+          <Text size="small">
+            <Text size="small" weight="semibold">
+              4. Enemies are not evenly spread.
             </Text>{" "}
             The model assumes kills are spread evenly, but they are not. There might be useful
             range breakpoints where Golden Bot reliably covers Black Holes.
           </Text>
           <Text size="small">
             <Text size="small" weight="semibold">
-              4. A direction, not an answer.
+              5. A direction, not an answer.
             </Text>{" "}
             Many other things can affect these numbers. Use the result to decide which upgrade
             to lean toward, not as a precise target.
@@ -785,8 +805,8 @@ export default function GoldenBotSniperPlanner() {
         {path.length > 0 ? (
           <div style={{ overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
             <Table
-              headers={["#", "Upgrade", "Level", "Cost", "Total", "Kills in range", "Getting bonus while active", "Avg coin × while active"]}
-              columnAlign={["right", "left", "right", "right", "right", "right", "right", "right"]}
+              headers={["#", "Upgrade", "Level", "Cost", "Total", "Kills in range", "Getting bonus while active", "Avg coin × while active", "Whole-run coin ×"]}
+              columnAlign={["right", "left", "right", "right", "right", "right", "right", "right", "right"]}
               stickyHeader
               rowTone={path.map((st) => (st.cumulative <= unspent ? "success" : undefined))}
               rows={path.map((st) => [
@@ -800,6 +820,7 @@ export default function GoldenBotSniperPlanner() {
                 fmtPct(st.after.coverage),
                 fmtPct(st.after.activeEffective),
                 fmtMult(st.after.value),
+                fmtMult(st.after.wholeRun),
               ])}
             />
           </div>
@@ -838,8 +859,8 @@ export default function GoldenBotSniperPlanner() {
         </Text>
         <div style={{ overflowX: "auto" }}>
           <Table
-            headers={["Medals spent", "Optimal levels", "Range · mult", "Optimal mix ×", "Range first ×", "Multiplier first ×"]}
-            columnAlign={["right", "left", "left", "right", "right", "right"]}
+            headers={["Medals spent", "Optimal levels", "Range · mult", "Optimal mix ×", "Optimal whole-run ×", "Range first ×", "Multiplier first ×"]}
+            columnAlign={["right", "left", "left", "right", "right", "right", "right"]}
             rows={milestoneRows}
           />
         </div>
