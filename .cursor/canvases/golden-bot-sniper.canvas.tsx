@@ -456,6 +456,8 @@ function ScenarioStats({
         <Stat value={fmtPct(ev.coverage)} label="Kills in range" />
         <Stat value={fmtPct(ev.activeCoverage)} label="In range while active" />
         <Stat value={fmtPct(ev.activeEffective)} label="Getting bonus while active" tone="info" />
+      </Grid>
+      <Grid columns="repeat(auto-fit, minmax(140px, 1fr))" gap={16}>
         <Stat value={fmtMult(ev.value)} label="Avg coin × while active" tone={tone ?? "info"} />
         <Stat value={fmtMult(ev.wholeRun)} label="Whole-run coin ×" tone={tone ?? "info"} />
         <Stat value={gain} label="Coins vs. no Sniper" tone={tone} />
