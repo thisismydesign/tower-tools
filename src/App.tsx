@@ -12,20 +12,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useHash } from "@mantine/hooks";
 
-import BattleReportStats from "./tools/BattleReportStats";
-import EnemyLevelSkip from "./tools/EnemyLevelSkip";
-import GoldenBotSniper from "./tools/GoldenBotSniper";
-import SubmodReroll from "./tools/SubmodReroll";
-import ThornCalculator from "./tools/ThornCalculator";
-
-/** Nav entries; `id` doubles as the `#/<id>` route. Add a line per tool. */
-const TOOLS = [
-  { id: "enemy-level-skip", title: "Enemy Level Skip", Component: EnemyLevelSkip },
-  { id: "thorn-calculator", title: "Thorn Calculator", Component: ThornCalculator },
-  { id: "golden-bot-sniper", title: "Golden Bot + Gilded Sniper", Component: GoldenBotSniper },
-  { id: "submod-reroll", title: "Submod Reroll", Component: SubmodReroll },
-  { id: "battle-report-stats", title: "Battle Report Stats", Component: BattleReportStats },
-];
+import { TOOLS } from "./tools";
 
 function ColorSchemeToggle() {
   const { setColorScheme } = useMantineColorScheme();

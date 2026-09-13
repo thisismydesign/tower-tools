@@ -1,0 +1,10 @@
+name: Set up Node and pnpm
+description: Install the tool versions pinned in .tool-versions and the project dependencies.
+runs:
+  using: composite
+  steps:
+    - name: Install tools (node, pnpm) from .tool-versions
+      uses: jdx/mise-action@v2
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      shell: bash

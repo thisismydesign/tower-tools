@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -8,4 +9,8 @@ const base = process.env.BASE_PATH ?? '/tower-tools/';
 export default defineConfig({
   base,
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['src/test/setup.ts'],
+  },
 });

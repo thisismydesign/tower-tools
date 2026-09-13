@@ -84,12 +84,13 @@ A plain React + [Mantine](https://mantine.dev/) single-page app under `src/`, ho
 ```
 src/
   main.tsx          React root + MantineProvider
-  App.tsx           AppShell layout, nav, hash routing — the tool list lives here
+  App.tsx           AppShell layout, nav, hash routing
   components/       Stat, SectionCard, DataTable, SliderField (bits Mantine doesn't ship)
+  tools/index.ts    the tool list shown in the nav
   tools/<Tool>.tsx  one self-contained file per tool
 ```
 
-Each tool is a single default-exported React component; inputs persist via Mantine's `useLocalStorage`. To add one, drop `src/tools/<Tool>.tsx` in and add a line to `TOOLS` in `src/App.tsx` — its `id` doubles as the `#/<id>` route.
+Each tool is a single default-exported React component; inputs persist via Mantine's `useLocalStorage`. To add one, drop `src/tools/<Tool>.tsx` in and add a line to `TOOLS` in `src/tools/index.ts` — its `id` doubles as the `#/<id>` route.
 
 ### Running and deploying
 
