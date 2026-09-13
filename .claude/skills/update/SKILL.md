@@ -37,17 +37,25 @@ Import new battle reports from Gmail drafts, refresh the copy of the game's save
    pnpm stats:battle-reports
    ```
 
-5. Copy the game's save file, named after the save's own timestamp (macOS; the container path can change between builds, so find it rather than hardcoding it):
+5. Refresh the copy of the game's save file, but only if it changed since the last update. Compare the game's file against the newest copy already in `player-info/` and skip the copy when they are identical (macOS; the container path can change between builds, so find it rather than hardcoding it):
 
    ```sh
-   mkdir -p player-info && src="$(find ~/Library/Containers -name playerInfo.dat 2>/dev/null | head -1)" && cp -p "$src" "player-info/playerInfo-$(stat -f '%Sm' -t '%Y.%m.%d-%H.%M' "$src").dat"
+   mkdir -p player-info \
+     && src="$(find ~/Library/Containers -name playerInfo.dat 2>/dev/null | head -1)" \
+     && latest="$(ls -t player-info/playerInfo-*.dat 2>/dev/null | head -1)" \
+     && if [ -n "$latest" ] && cmp -s "$src" "$latest"; then
+          echo "save unchanged since $latest"
+        else
+          dst="player-info/playerInfo-$(stat -f '%Sm' -t '%Y.%m.%d-%H.%M' "$src").dat"
+          cp -p "$src" "$dst" && echo "copied save to $dst"
+        fi
    ```
 
-6. Count reports again and tell the user: how many new reports were imported (after − before, plus the importer's own matched/wrote/skipped line), how many total rows the converter wrote, and the stats build's farm/tournament counts, and the timestamp of the save file just copied.
+6. Count reports again and tell the user: how many new reports were imported (after − before, plus the importer's own matched/wrote/skipped line), how many total rows the converter wrote, and the stats build's farm/tournament counts, and whether the save file was copied (with its timestamp) or skipped because it matched the newest existing copy.
 
 ## Notes
 
-- Files are named after the battle's own timestamp — and save files after the save's own timestamp — so re-running overwrites in place rather than piling up duplicates.
+- Files are named after the battle's own timestamp — and save files after the save's own timestamp — so re-running overwrites in place rather than piling up duplicates. The save copy is skipped outright when its bytes match the newest copy already in `player-info/`, so a run with no new save leaves the folder untouched.
 - If the importer fails with missing credentials, point the user at `.env` (see `.env.example`) and https://myaccount.google.com/apppasswords.
 - `battle-reports/` and `player-info/` are gitignored; there is nothing to commit after an update.
 - The player info copy only works on the machine the game runs on. If `find` turns up nothing, say so and carry on — the report import still stands.
