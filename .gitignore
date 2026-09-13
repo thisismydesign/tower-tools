@@ -3,10 +3,6 @@ battle-reports/*
 !battle-reports/.keep
 player-info/*
 !player-info/.keep
-battle-report-converter/input/*
-!battle-report-converter/input/.keep
-battle-report-converter/output/*
-!battle-report-converter/output/.keep
 
 # Web build
 node_modules/
@@ -16,4 +12,5 @@ dist/
 
 notes.md
 
+# macOS
 .DS_Store
