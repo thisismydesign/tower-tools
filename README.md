@@ -18,6 +18,10 @@ Estimates how many hits it takes to kill regular enemies and bosses with thorns.
 
 Finds the best split of medals between Golden Bot range and coin multiplier when the Gilded Sniper cannon module gives out-of-range kills a chance (10-40% by rarity) to receive active coin bonuses. Enter your total medals (including what is already invested in Golden Bot), current range/bonus levels, extra range, the "kills in Golden Bot range" percentage from a battle report, and the sniper rarity to get the target levels, an ordered upgrade path, and a range-first vs. multiplier-first vs. optimal comparison.
 
+### Themes vs. Golden Bot
+
+Answers whether the event themes are worth their medals. Every event sells a background (+0.8% coins for 250 medals) and a tower skin (+0.4% for 150); each adds to one themes total (e.g. 1.658x) that multiplies all coins. The tool prices both against the next Golden Bot upgrade as "% more coins per 100 medals", using the same Golden Bot model and inputs as the planner above (they are shared between the two pages), plus a "coins earned while Golden Bot is active" share to scale the bot's gain to the whole run. It gives a buy / Golden-Bot-first verdict per theme and charts every remaining Golden Bot upgrade against the flat theme rates.
+
 ### Submod Reroll Calculator
 
 Works out how many reroll shards it takes to land a specific sub-module effect. Pick the module type, target rarity, locked slots, and banned effects to see the per-slot and per-reroll hit chance, the expected (average) shard cost, and a shards-by-confidence table.
@@ -85,7 +89,8 @@ A plain React + [Mantine](https://mantine.dev/) single-page app under `src/`, ho
 src/
   main.tsx          React root + MantineProvider
   App.tsx           AppShell layout, nav, hash routing
-  components/       Stat, SectionCard, DataTable, SliderField (bits Mantine doesn't ship)
+  components/       Stat, SectionCard, DataTable, SliderField, NumberField, LevelValueField (bits Mantine doesn't ship)
+  model/            game math shared by more than one tool (Golden Bot)
   tools/index.ts    the tool list shown in the nav
   tools/<Tool>.tsx  one self-contained file per tool
 ```

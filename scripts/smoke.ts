@@ -12,6 +12,7 @@ const TOOL_IDS = [
   "enemy-level-skip",
   "thorn-calculator",
   "golden-bot-sniper",
+  "themes-vs-golden-bot",
   "submod-reroll",
   "battle-report-stats",
 ];
