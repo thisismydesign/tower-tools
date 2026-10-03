@@ -18,10 +18,12 @@ import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { battleInstant, normalizeValue, parseReport } from '../battle-report-converter/convert.ts'
-
-// Wednesday and Saturday, in UTC — same rule as the CSV converter.
-const TOURNAMENT_DAYS = [3, 6]
+import {
+  battleInstant,
+  normalizeValue,
+  parseReport,
+  tournamentDate,
+} from '../battle-report-converter/convert.ts'
 
 // Tournament runs happen at a league-specific tier; unmapped tiers surface
 // as league: null in the JSON.
@@ -185,16 +187,16 @@ export async function buildBattleReportStats(options: BuildOptions): Promise<Sta
       const tier = typeof fields.tier === 'number' ? fields.tier : null
       const wave = typeof fields.wave === 'number' ? fields.wave : null
 
+      // Same rule as the CSV converter, so the two agree on run type.
+      const tournamentDay = instant ? tournamentDate(instant) : null
       let runType: StatsReport['runType'] = null
       if (instant) {
-        const isTournamentDay = TOURNAMENT_DAYS.includes(instant.getUTCDay())
         // Unknown wave count must not read as "below the threshold".
         runType =
-          isTournamentDay && (wave ?? Infinity) < tournamentDetectionMaxWaves ? 'tournament' : 'farm'
+          tournamentDay && (wave ?? Infinity) < tournamentDetectionMaxWaves ? 'tournament' : 'farm'
       }
 
       const isTournament = runType === 'tournament'
-      const utcDate = instant?.toISOString().slice(0, 10)
 
       return {
         file: name,
@@ -203,7 +205,7 @@ export async function buildBattleReportStats(options: BuildOptions): Promise<Sta
         tier,
         wave,
         league: isTournament && tier !== null ? LEAGUE_BY_TIER[tier] ?? null : null,
-        placement: (isTournament && utcDate && placements[utcDate]) || null,
+        placement: (isTournament && tournamentDay && placements[tournamentDay]) || null,
         fields,
       }
     }),

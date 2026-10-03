@@ -22,6 +22,8 @@ const BATTLE_DATE_FORMAT = 'MMM dd, yyyy HH:mm'
 
 // Wednesday and Saturday, in UTC.
 const TOURNAMENT_DAYS = [3, 6]
+// A tournament run can still end shortly after its UTC day is over.
+const TOURNAMENT_GRACE_MS = 2 * 60 * 60 * 1000
 
 // A value starts at the first token beginning with a digit, $, or x<digit>.
 const KEY_VALUE = /^(.+?)\s((?:\$?\d|x\d).*)$/
@@ -96,9 +98,19 @@ export function battleInstant(battleDate: string, timezone: string): Date | null
   return isValid(instant) ? instant : null
 }
 
+/**
+ * The UTC date (YYYY-MM-DD) of the tournament day a run at this instant falls
+ * on, counting the grace period after the day as part of it; null otherwise.
+ */
+export function tournamentDate(instant: Date): string | null {
+  for (const day of [instant, new Date(instant.getTime() - TOURNAMENT_GRACE_MS)]) {
+    if (TOURNAMENT_DAYS.includes(day.getUTCDay())) return day.toISOString().slice(0, 10)
+  }
+  return null
+}
+
 function runType(instant: Date, waves: number, tournamentWaveCount: number): string {
-  const isTournamentDay = TOURNAMENT_DAYS.includes(instant.getUTCDay())
-  return isTournamentDay && waves < tournamentWaveCount ? 'tournament' : 'farm'
+  return tournamentDate(instant) && waves < tournamentWaveCount ? 'tournament' : 'farm'
 }
 
 function assertTimezone(timezone: string): void {

@@ -51,7 +51,7 @@ pnpm convert:battle-reports -- \
   --tournament-detection-max-waves 3000
 ```
 
-`--timezone` says which zone the reports' times are in. Run type and the `_Date`/`_Time` columns are stored in **UTC**. A run on a Wednesday or Saturday UTC below `--tournament-detection-max-waves` is a tournament; everything else is a farm.
+`--timezone` says which zone the reports' times are in. Run type and the `_Date`/`_Time` columns are stored in **UTC**. A run on a Wednesday or Saturday UTC (or within 2 hours after one ends, since a tournament run can finish past midnight) below `--tournament-detection-max-waves` is a tournament; everything else is a farm.
 
 Importable too — passing `write: false` returns the CSV as a string instead of writing it:
 
@@ -77,7 +77,7 @@ pnpm stats:battle-reports   # battle-reports/*.txt -> battle-reports/00-stats.js
 
 Defaults (`--input battle-reports --output battle-reports/00-stats.json --timezone Europe/Budapest --tournament-detection-max-waves 3000`) can all be overridden with flags.
 
-Tournament league is derived from the run's tier (`LEAGUE_BY_TIER` in `battle-report-stats/build.ts`: 1 Copper, 3 Silver, 5 Gold, 8 Platinum, 12 Champion, 17 Legend). Placements aren't in the reports — an optional `battle-reports/placements.json` mapping UTC date to placement (`{"2026-07-25": 3}`) fills that column.
+Tournament league is derived from the run's tier (`LEAGUE_BY_TIER` in `battle-report-stats/build.ts`: 1 Copper, 3 Silver, 5 Gold, 8 Platinum, 12 Champion, 17 Legend). Placements aren't in the reports — an optional `battle-reports/placements.json` mapping the tournament's UTC date (the Wednesday or Saturday, even for a run that ends in the grace period after it) to placement (`{"2026-07-25": 3}`) fills that column.
 
 ## Deployment
 
